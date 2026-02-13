@@ -1,10 +1,14 @@
 #include <pebble.h>
 #include "data/storage.h"
+#include "logic/reminders.h"
 #include "windows/home_window.h"
 
 static void init(void) {
   // Initialize storage
   storage_init();
+
+  // Initialize reminder system
+  reminders_init();
 
   // Show home window
   home_window_push();

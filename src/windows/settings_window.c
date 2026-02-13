@@ -1,14 +1,20 @@
 #include "settings_window.h"
+#include "reminder_settings_window.h"
+#include "custom_prompts_window.h"
 #include "../data/storage.h"
 #include "../logic/prompts.h"
+#include "../logic/reminders.h"
 #include "../utils/constants.h"
 
 static Window *s_window;
 static SimpleMenuLayer *s_menu_layer;
 static SimpleMenuSection s_menu_section;
-static SimpleMenuItem s_menu_items[3];
+static SimpleMenuItem s_menu_items[6];
 static char s_storage_text[32];
 static char s_prompt_mode_text[32];
+static char s_reminders_text[32];
+static char s_custom_prompts_text[32];
+static char s_export_text[32];
 static char s_about_text[32];
 
 static void prompt_mode_callback(int index, void *context) {
@@ -20,6 +26,26 @@ static void prompt_mode_callback(int index, void *context) {
   snprintf(s_prompt_mode_text, sizeof(s_prompt_mode_text),
            prompts_get_mode() ? "Sequential" : "Random");
   menu_layer_reload_data(simple_menu_layer_get_menu_layer(s_menu_layer));
+}
+
+static void reminders_callback(int index, void *context) {
+  // Open reminder settings window
+  reminder_settings_window_push();
+}
+
+static void custom_prompts_callback(int index, void *context) {
+  // Open custom prompts window
+  custom_prompts_window_push();
+}
+
+static void export_callback(int index, void *context) {
+  // Trigger data export via AppMessage
+  // For simplicity, just show a message for now
+  snprintf(s_export_text, sizeof(s_export_text), "Export initiated");
+  menu_layer_reload_data(simple_menu_layer_get_menu_layer(s_menu_layer));
+
+  // TODO: Implement actual export via PebbleKit JS
+  APP_LOG(APP_LOG_LEVEL_INFO, "Export triggered - PebbleKit JS needed for implementation");
 }
 
 static void window_load(Window *window) {
@@ -34,6 +60,17 @@ static void window_load(Window *window) {
   // Update prompt mode text
   snprintf(s_prompt_mode_text, sizeof(s_prompt_mode_text),
            prompts_get_mode() ? "Sequential" : "Random");
+
+  // Update reminders text
+  snprintf(s_reminders_text, sizeof(s_reminders_text),
+           reminders_is_enabled() ? "On" : "Off");
+
+  // Update custom prompts text
+  snprintf(s_custom_prompts_text, sizeof(s_custom_prompts_text),
+           "%d custom", prompts_get_custom_count());
+
+  // Export text
+  snprintf(s_export_text, sizeof(s_export_text), "Export data");
 
   // About text
   snprintf(s_about_text, sizeof(s_about_text), "v%s", APP_VERSION);
@@ -51,13 +88,31 @@ static void window_load(Window *window) {
   };
 
   s_menu_items[2] = (SimpleMenuItem) {
+    .title = "Reminders",
+    .subtitle = s_reminders_text,
+    .callback = reminders_callback
+  };
+
+  s_menu_items[3] = (SimpleMenuItem) {
+    .title = "Custom Prompts",
+    .subtitle = s_custom_prompts_text,
+    .callback = custom_prompts_callback
+  };
+
+  s_menu_items[4] = (SimpleMenuItem) {
+    .title = "Export Data",
+    .subtitle = s_export_text,
+    .callback = export_callback
+  };
+
+  s_menu_items[5] = (SimpleMenuItem) {
     .title = "About",
     .subtitle = s_about_text
   };
 
   s_menu_section = (SimpleMenuSection) {
     .items = s_menu_items,
-    .num_items = 3
+    .num_items = 6
   };
 
   // Create menu layer

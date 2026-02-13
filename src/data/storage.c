@@ -29,15 +29,26 @@ void storage_init(void) {
 }
 
 bool storage_save_entry(const Entry *entry) {
-  if (!entry || !entry_validate(entry)) {
+  if (!entry) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_save_entry: entry is NULL");
+    return false;
+  }
+
+  if (!entry_validate(entry)) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_save_entry: entry validation failed");
     return false;
   }
 
   uint16_t count = storage_get_entry_count();
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "storage_save_entry: current count = %d", count);
 
   // If at max capacity, delete oldest entry
   if (count >= MAX_ENTRIES) {
-    storage_delete_oldest_entry();
+    APP_LOG(APP_LOG_LEVEL_INFO, "storage_save_entry: at capacity, deleting oldest");
+    if (!storage_delete_oldest_entry()) {
+      APP_LOG(APP_LOG_LEVEL_ERROR, "storage_save_entry: failed to delete oldest entry");
+      return false;
+    }
     count = storage_get_entry_count();
   }
 
@@ -47,10 +58,16 @@ bool storage_save_entry(const Entry *entry) {
 
   if (result == sizeof(Entry)) {
     // Update count
-    persist_write_int(STORAGE_KEY_ENTRY_COUNT, count + 1);
+    int count_result = persist_write_int(STORAGE_KEY_ENTRY_COUNT, count + 1);
+    if (count_result != sizeof(int)) {
+      APP_LOG(APP_LOG_LEVEL_ERROR, "storage_save_entry: failed to update entry count");
+      // Entry saved but count not updated - data inconsistency possible
+    }
+    APP_LOG(APP_LOG_LEVEL_INFO, "storage_save_entry: successfully saved entry %d", count);
     return true;
   }
 
+  APP_LOG(APP_LOG_LEVEL_ERROR, "storage_save_entry: persist_write_data failed, result = %d", result);
   return false;
 }
 
@@ -122,7 +139,10 @@ uint16_t storage_get_entry_count(void) {
 }
 
 void storage_load_stats(Stats *stats) {
-  if (!stats) return;
+  if (!stats) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_load_stats: stats is NULL");
+    return;
+  }
 
   memset(stats, 0, sizeof(Stats));
 
@@ -138,15 +158,24 @@ void storage_load_stats(Stats *stats) {
 
   // Calculate mood counts from all entries
   Entry *entries = malloc(sizeof(Entry) * MAX_ENTRIES);
-  if (entries) {
-    uint16_t count = storage_get_all_entries(entries, MAX_ENTRIES);
-    for (uint16_t i = 0; i < count; i++) {
-      if (entries[i].mood >= MOOD_SAD && entries[i].mood <= MOOD_GRATEFUL) {
-        stats->mood_counts[entries[i].mood]++;
-      }
-    }
-    free(entries);
+  if (!entries) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_load_stats: malloc failed for entries");
+    return;
   }
+
+  uint16_t count = storage_get_all_entries(entries, MAX_ENTRIES);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "storage_load_stats: loaded %d entries for stats calculation", count);
+
+  for (uint16_t i = 0; i < count; i++) {
+    if (entries[i].mood >= MOOD_SAD && entries[i].mood <= MOOD_GRATEFUL) {
+      stats->mood_counts[entries[i].mood]++;
+    } else {
+      APP_LOG(APP_LOG_LEVEL_WARNING, "storage_load_stats: invalid mood value %d for entry %d", entries[i].mood, i);
+    }
+  }
+
+  free(entries);
+  APP_LOG(APP_LOG_LEVEL_INFO, "storage_load_stats: streak=%d, total=%d", stats->current_streak, stats->total_entries);
 }
 
 void storage_save_stats(const Stats *stats) {
@@ -159,28 +188,36 @@ void storage_save_stats(const Stats *stats) {
 bool storage_delete_oldest_entry(void) {
   uint16_t count = storage_get_entry_count();
   if (count == 0) {
+    APP_LOG(APP_LOG_LEVEL_WARNING, "storage_delete_oldest_entry: no entries to delete");
     return false;
   }
 
   // Load all entries to find oldest
   Entry *entries = malloc(sizeof(Entry) * MAX_ENTRIES);
   if (!entries) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_oldest_entry: malloc failed");
     return false;
   }
 
   uint16_t loaded = storage_get_all_entries(entries, MAX_ENTRIES);
   if (loaded == 0) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_oldest_entry: no entries loaded");
     free(entries);
     return false;
   }
 
   // Find oldest (entries are sorted newest first, so oldest is at end)
   time_t oldest_date = entries[loaded - 1].date;
+  APP_LOG(APP_LOG_LEVEL_INFO, "storage_delete_oldest_entry: deleting entry from %ld", (long)oldest_date);
 
   // Shift all entries down by one slot
   for (uint16_t i = 0; i < loaded - 1; i++) {
     uint32_t key = get_entry_key(i);
-    persist_write_data(key, &entries[i], sizeof(Entry));
+    int result = persist_write_data(key, &entries[i], sizeof(Entry));
+    if (result != sizeof(Entry)) {
+      APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_oldest_entry: failed to write entry %d during shift", i);
+      // Continue anyway to try to maintain data integrity
+    }
   }
 
   // Delete last slot
@@ -188,9 +225,13 @@ bool storage_delete_oldest_entry(void) {
   persist_delete(last_key);
 
   // Update count
-  persist_write_int(STORAGE_KEY_ENTRY_COUNT, loaded - 1);
+  int count_result = persist_write_int(STORAGE_KEY_ENTRY_COUNT, loaded - 1);
+  if (count_result != sizeof(int)) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_oldest_entry: failed to update count");
+  }
 
   free(entries);
+  APP_LOG(APP_LOG_LEVEL_INFO, "storage_delete_oldest_entry: successfully deleted oldest entry");
   return true;
 }
 
@@ -201,4 +242,102 @@ bool storage_is_near_capacity(void) {
 uint8_t storage_get_utilization(void) {
   uint16_t count = storage_get_entry_count();
   return (uint8_t)((count * 100) / MAX_ENTRIES);
+}
+
+bool storage_update_entry(uint16_t index, const Entry *entry) {
+  if (!entry || !entry_validate(entry)) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_update_entry: invalid entry");
+    return false;
+  }
+
+  uint16_t count = storage_get_entry_count();
+  if (index >= count) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_update_entry: index %d out of range (count=%d)", index, count);
+    return false;
+  }
+
+  uint32_t key = get_entry_key(index);
+  int result = persist_write_data(key, entry, sizeof(Entry));
+
+  if (result == sizeof(Entry)) {
+    APP_LOG(APP_LOG_LEVEL_INFO, "storage_update_entry: successfully updated entry %d", index);
+    return true;
+  }
+
+  APP_LOG(APP_LOG_LEVEL_ERROR, "storage_update_entry: persist_write_data failed, result=%d", result);
+  return false;
+}
+
+bool storage_delete_entry(uint16_t index) {
+  uint16_t count = storage_get_entry_count();
+  if (index >= count) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_entry: index %d out of range (count=%d)", index, count);
+    return false;
+  }
+
+  // Load all entries
+  Entry *entries = malloc(sizeof(Entry) * MAX_ENTRIES);
+  if (!entries) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_entry: malloc failed");
+    return false;
+  }
+
+  uint16_t loaded = storage_get_all_entries(entries, MAX_ENTRIES);
+  if (loaded == 0 || index >= loaded) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_entry: failed to load entries or index invalid");
+    free(entries);
+    return false;
+  }
+
+  APP_LOG(APP_LOG_LEVEL_INFO, "storage_delete_entry: deleting entry %d of %d", index, loaded);
+
+  // Shift entries after deleted index down by one
+  for (uint16_t i = index; i < loaded - 1; i++) {
+    uint32_t key = get_entry_key(i);
+    int result = persist_write_data(key, &entries[i + 1], sizeof(Entry));
+    if (result != sizeof(Entry)) {
+      APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_entry: failed to write entry %d during shift", i);
+    }
+  }
+
+  // Delete last entry
+  uint32_t last_key = get_entry_key(loaded - 1);
+  persist_delete(last_key);
+
+  // Update count
+  int count_result = persist_write_int(STORAGE_KEY_ENTRY_COUNT, loaded - 1);
+  if (count_result != sizeof(int)) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_entry: failed to update count");
+  }
+
+  free(entries);
+  APP_LOG(APP_LOG_LEVEL_INFO, "storage_delete_entry: successfully deleted entry");
+  return true;
+}
+
+bool storage_get_entry_by_index(uint16_t index, Entry *entry) {
+  if (!entry) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_get_entry_by_index: entry is NULL");
+    return false;
+  }
+
+  uint16_t count = storage_get_entry_count();
+  if (index >= count) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_get_entry_by_index: index %d out of range (count=%d)", index, count);
+    return false;
+  }
+
+  uint32_t key = get_entry_key(index);
+  if (!persist_exists(key)) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_get_entry_by_index: key %lu does not exist", (unsigned long)key);
+    return false;
+  }
+
+  int result = persist_read_data(key, entry, sizeof(Entry));
+  if (result == sizeof(Entry)) {
+    return true;
+  }
+
+  APP_LOG(APP_LOG_LEVEL_ERROR, "storage_get_entry_by_index: persist_read_data failed, result=%d", result);
+  return false;
 }

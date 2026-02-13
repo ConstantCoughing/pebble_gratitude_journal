@@ -1,64 +1,35 @@
-#include "entry_window.h"
-#include "../data/entry.h"
+#include "edit_entry_window.h"
 #include "../data/storage.h"
 #include "../logic/stats.h"
 #include "../utils/date_utils.h"
+#include "../utils/constants.h"
 #include <string.h>
 
 // Canned response labels
 static const char* CANNED_LABELS[NUM_CANNED_RESPONSES] = {
-  "Family",
-  "Friends",
-  "Health",
-  "Work",
-  "Nature",
-  "Food",
-  "Music",
-  "Rest",
-  "Learning",
-  "Pets"
+  "Family", "Friends", "Health", "Work", "Nature",
+  "Food", "Music", "Rest", "Learning", "Pets"
 };
 
 // Mood labels
 static const char* MOOD_LABELS[9] = {
-  "Sad",
-  "Anxious",
-  "Stressed",
-  "Tired",
-  "Neutral",
-  "Content",
-  "Happy",
-  "Excited",
-  "Grateful"
+  "Sad", "Anxious", "Stressed", "Tired", "Neutral",
+  "Content", "Happy", "Excited", "Grateful"
 };
-
-// Get mood icon resource ID (28×28 for mood selection)
-static uint32_t get_mood_icon_resource(Mood mood) {
-  switch (mood) {
-    case MOOD_SAD: return RESOURCE_ID_MOOD_SAD_28;
-    case MOOD_ANXIOUS: return RESOURCE_ID_MOOD_ANXIOUS_28;
-    case MOOD_STRESSED: return RESOURCE_ID_MOOD_STRESSED_28;
-    case MOOD_TIRED: return RESOURCE_ID_MOOD_TIRED_28;
-    case MOOD_NEUTRAL: return RESOURCE_ID_MOOD_NEUTRAL_28;
-    case MOOD_CONTENT: return RESOURCE_ID_MOOD_CONTENT_28;
-    case MOOD_HAPPY: return RESOURCE_ID_MOOD_HAPPY_28;
-    case MOOD_EXCITED: return RESOURCE_ID_MOOD_EXCITED_28;
-    case MOOD_GRATEFUL: return RESOURCE_ID_MOOD_GRATEFUL_28;
-    default: return RESOURCE_ID_MOOD_NEUTRAL_28;
-  }
-}
 
 typedef enum {
   STAGE_CANNED_RESPONSE,
   STAGE_MOOD_SELECTION,
   STAGE_COMPLETE
-} EntryStage;
+} EditStage;
 
 static Window *s_window;
 static MenuLayer *s_menu_layer;
-static EntryStage s_current_stage;
+static EditStage *s_current_stage;
 static uint16_t s_selected_canned_flags;
 static Mood s_selected_mood;
+static uint16_t s_entry_index;
+static Entry s_original_entry;
 
 // Forward declarations
 static void show_mood_selection(void);
@@ -66,7 +37,7 @@ static void save_and_close(void);
 
 // Canned response menu callbacks
 static uint16_t canned_menu_get_num_rows(MenuLayer *menu_layer, uint16_t section_index, void *context) {
-  return NUM_CANNED_RESPONSES + 1;  // +1 for "Done" option
+  return NUM_CANNED_RESPONSES + 1;  // +1 for "Done"
 }
 
 static void canned_menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index, void *context) {
@@ -81,10 +52,9 @@ static void canned_menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuInd
 
 static void canned_menu_select(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
   if (cell_index->row == NUM_CANNED_RESPONSES) {
-    // Done button - proceed to mood selection
+    // Done button
     if (s_selected_canned_flags == 0) {
-      // Nothing selected - default to "grateful"
-      s_selected_canned_flags = CANNED_FAMILY;
+      s_selected_canned_flags = CANNED_FAMILY;  // Default
     }
     show_mood_selection();
   } else {
@@ -92,6 +62,22 @@ static void canned_menu_select(MenuLayer *menu_layer, MenuIndex *cell_index, voi
     uint16_t flag = (1 << cell_index->row);
     s_selected_canned_flags ^= flag;
     menu_layer_reload_data(s_menu_layer);
+  }
+}
+
+// Get mood icon resource ID (28×28 for mood selection)
+static uint32_t get_mood_icon_resource(Mood mood) {
+  switch (mood) {
+    case MOOD_SAD: return RESOURCE_ID_MOOD_SAD_28;
+    case MOOD_ANXIOUS: return RESOURCE_ID_MOOD_ANXIOUS_28;
+    case MOOD_STRESSED: return RESOURCE_ID_MOOD_STRESSED_28;
+    case MOOD_TIRED: return RESOURCE_ID_MOOD_TIRED_28;
+    case MOOD_NEUTRAL: return RESOURCE_ID_MOOD_NEUTRAL_28;
+    case MOOD_CONTENT: return RESOURCE_ID_MOOD_CONTENT_28;
+    case MOOD_HAPPY: return RESOURCE_ID_MOOD_HAPPY_28;
+    case MOOD_EXCITED: return RESOURCE_ID_MOOD_EXCITED_28;
+    case MOOD_GRATEFUL: return RESOURCE_ID_MOOD_GRATEFUL_28;
+    default: return RESOURCE_ID_MOOD_NEUTRAL_28;
   }
 }
 
@@ -134,64 +120,23 @@ static void show_mood_selection(void) {
   layer_add_child(window_layer, menu_layer_get_layer(s_menu_layer));
 }
 
-// Storage warning dialog
-static Window *s_warning_dialog_window = NULL;
-static TextLayer *s_warning_text_layer = NULL;
-
-static void storage_warning_dialog_dismissed(ClickRecognizerRef recognizer, void *context) {
-  // Pop the warning dialog
-  window_stack_pop(true);
-}
-
-static void warning_dialog_click_config_provider(void *context) {
-  window_single_click_subscribe(BUTTON_ID_UP, storage_warning_dialog_dismissed);
-  window_single_click_subscribe(BUTTON_ID_SELECT, storage_warning_dialog_dismissed);
-  window_single_click_subscribe(BUTTON_ID_DOWN, storage_warning_dialog_dismissed);
-  window_single_click_subscribe(BUTTON_ID_BACK, storage_warning_dialog_dismissed);
-}
-
-static void show_storage_warning(void) {
-  if (!s_warning_dialog_window) {
-    s_warning_dialog_window = window_create();
-    Layer *window_layer = window_get_root_layer(s_warning_dialog_window);
-    GRect bounds = layer_get_bounds(window_layer);
-
-    // Create text layer for warning message
-    s_warning_text_layer = text_layer_create(GRect(10, 30, bounds.size.w - 20, bounds.size.h - 60));
-    text_layer_set_text(s_warning_text_layer,
-      "Storage is 90% full!\n\n"
-      "Oldest entries will be deleted automatically.\n\n"
-      "Press any button to continue.");
-    text_layer_set_text_alignment(s_warning_text_layer, GTextAlignmentCenter);
-    text_layer_set_font(s_warning_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
-    layer_add_child(window_layer, text_layer_get_layer(s_warning_text_layer));
-
-    // Set up click handlers to dismiss on any button
-    window_set_click_config_provider(s_warning_dialog_window, warning_dialog_click_config_provider);
-  }
-
-  window_stack_push(s_warning_dialog_window, true);
-}
-
 static void save_and_close(void) {
   s_current_stage = STAGE_COMPLETE;
 
-  // Create entry
-  Entry entry;
-  entry_init(&entry, date_get_today(), s_selected_mood, s_selected_canned_flags);
+  // Update entry with new values
+  Entry updated_entry;
+  entry_init(&updated_entry, s_original_entry.date, s_selected_mood, s_selected_canned_flags);
 
-  // Check storage capacity before saving
-  bool was_near_capacity = storage_is_near_capacity();
+  // Save updated entry
+  if (storage_update_entry(s_entry_index, &updated_entry)) {
+    APP_LOG(APP_LOG_LEVEL_INFO, "edit_entry_window: entry updated successfully");
 
-  // Save entry
-  if (storage_save_entry(&entry)) {
-    // Update stats
-    stats_update_after_entry(&entry);
-
-    // Show warning if storage is getting full
-    if (was_near_capacity || storage_is_near_capacity()) {
-      show_storage_warning();
-    }
+    // Recalculate stats after edit
+    Stats stats;
+    storage_load_stats(&stats);
+    storage_save_stats(&stats);
+  } else {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "edit_entry_window: failed to update entry");
   }
 
   // Close window
@@ -202,10 +147,17 @@ static void window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
 
-  // Initialize state
+  // Load the entry to edit
+  if (!storage_get_entry_by_index(s_entry_index, &s_original_entry)) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "edit_entry_window: failed to load entry %d", s_entry_index);
+    window_stack_pop(true);
+    return;
+  }
+
+  // Initialize state with current values
   s_current_stage = STAGE_CANNED_RESPONSE;
-  s_selected_canned_flags = 0;
-  s_selected_mood = MOOD_NEUTRAL;
+  s_selected_canned_flags = s_original_entry.canned_flags;
+  s_selected_mood = s_original_entry.mood;
 
   // Create menu layer for canned responses
   s_menu_layer = menu_layer_create(bounds);
@@ -223,7 +175,9 @@ static void window_unload(Window *window) {
   menu_layer_destroy(s_menu_layer);
 }
 
-void entry_window_push(void) {
+void edit_entry_window_push(uint16_t entry_index) {
+  s_entry_index = entry_index;
+
   if (!s_window) {
     s_window = window_create();
     window_set_window_handlers(s_window, (WindowHandlers) {
@@ -234,7 +188,7 @@ void entry_window_push(void) {
   window_stack_push(s_window, true);
 }
 
-void entry_window_destroy(void) {
+void edit_entry_window_destroy(void) {
   if (s_window) {
     window_destroy(s_window);
     s_window = NULL;

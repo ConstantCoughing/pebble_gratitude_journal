@@ -4,13 +4,18 @@ A gratitude journal app for Pebble smartwatches that helps you track daily momen
 
 ## Features
 
-### v0.1.0 (MVP)
+### v0.1.1 (Current)
 
 - **Quick Entry Creation**: Create journal entries in under 30 seconds using 10 predefined canned responses
-- **Mood Tagging**: Tag each entry with one of 9 moods (Sad, Anxious, Stressed, Tired, Neutral, Content, Happy, Excited, Grateful)
-- **Daily Prompts**: Get inspired by 50 built-in gratitude prompts that rotate daily
+- **Mood Tagging**: Tag each entry with one of 9 moods with emoji icon indicators
+- **Daily Prompts**: Get inspired by 50 built-in gratitude prompts that rotate daily (random or sequential)
 - **Streak Counter**: Track your journaling consistency with a daily streak counter
-- **Calendar View**: Visualize your entries and moods in a monthly calendar with color-coded mood indicators
+- **Calendar View**: Visualize your entries in a monthly calendar with emoji mood indicators
+- **Entry Management**: Edit existing entries and delete with confirmation
+- **Daily Reminders**: Configurable notification time with snooze options (15/30 min)
+- **Mood Visualizations**: Bar charts, mood trends, and distribution analytics
+- **Custom Prompts**: Add, manage, and delete up to 20 custom gratitude prompts
+- **Data Export**: Export your journal data (basic export structure implemented)
 - **Persistent Storage**: Store up to 180 entries locally on your Pebble with automatic circular buffer management
 - **Cross-Platform**: Works on all Pebble models (Aplite, Basalt, Chalk, Diorite)
 
@@ -58,15 +63,36 @@ A gratitude journal app for Pebble smartwatches that helps you track daily momen
 
 1. From the home screen, select **View Calendar**
 2. Use UP/DOWN buttons to navigate months
-3. Days with entries show mood indicators (colored dots on color displays, small dots on monochrome)
+3. Days with entries show small black dots
 4. Current day is highlighted
+5. Press SELECT to view today's entry details
+
+### Visualizations
+
+1. From the home screen, select **Visualizations**
+2. Choose from three visualization types:
+   - **Entries per Week**: Bar chart of last 4 weeks
+   - **Mood Trend**: Line graph of average mood over time
+   - **Mood Distribution**: Top 5 moods with percentages
+3. Press BACK to return to menu
+
+### Managing Entries
+
+1. From calendar, press SELECT to view entry details
+2. Press SELECT again for action menu
+3. Choose **Edit Entry** to modify canned responses and mood
+4. Choose **Delete Entry** to remove (with confirmation)
+5. Streak automatically recalculates after deletion
 
 ### Settings
 
 1. From the home screen, select **Settings**
-2. View storage utilization
-3. Toggle prompt mode between Random and Sequential
-4. View app version
+2. **Storage**: View utilization (entries/180)
+3. **Prompt Mode**: Toggle Random/Sequential
+4. **Reminders**: Configure daily reminder time and snooze
+5. **Custom Prompts**: Add/manage up to 20 custom prompts (tap to add, long-press to delete)
+6. **Export Data**: Export journal data (requires PebbleKit JS)
+7. **About**: View app version
 
 ## Project Structure
 
@@ -129,25 +155,22 @@ Uses preprocessor directives for platform-specific features:
 - `PBL_COLOR`: Color vs monochrome mood indicators
 - `PBL_ROUND`: Adjusted layouts for round displays
 
-## Known Limitations (v0.1.0)
+## Known Limitations (v0.1.1)
 
-- No text input - canned responses only
-- No custom prompts - 50 built-in only
-- No data export - local storage only
-- No daily reminders - manual entry creation
-- No entry editing/deletion - append-only
-- No data sync between devices
+- No free-text input - canned responses only
+- No voice-to-text (deferred to v0.1.2)
+- No entry search/filtering (deferred to v0.1.2)
+- No cloud sync between devices
+- Export requires PebbleKit JS implementation to be fully functional
 
-## Future Features (v0.1.1+)
+## Future Features (v0.1.2+)
 
-- Voice input support (where available)
-- Daily reminder notifications
-- Data export to phone app
-- Entry search and filtering
-- Mood charts and statistics
-- Custom prompt creation
-- Entry editing capability
+- Voice-to-text input support (Rebble API)
+- Entry search and filtering by text/mood/date
+- T9 text input (optional, based on feedback)
+- Full PebbleKit JS export implementation
 - Cloud sync support
+- Photo attachments (if memory allows)
 
 ## Development
 

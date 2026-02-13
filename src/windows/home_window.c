@@ -1,6 +1,7 @@
 #include "home_window.h"
 #include "entry_window.h"
 #include "calendar_window.h"
+#include "visualization_window.h"
 #include "settings_window.h"
 #include "../logic/prompts.h"
 #include "../logic/stats.h"
@@ -9,7 +10,7 @@ static Window *s_window;
 static TextLayer *s_prompt_layer;
 static SimpleMenuLayer *s_menu_layer;
 static SimpleMenuSection s_menu_section;
-static SimpleMenuItem s_menu_items[3];
+static SimpleMenuItem s_menu_items[4];
 static char s_streak_text[32];
 
 static void menu_select_callback(int index, void *context) {
@@ -23,6 +24,10 @@ static void menu_select_callback(int index, void *context) {
       calendar_window_push();
       break;
     case 2:
+      // Visualizations
+      visualization_window_push();
+      break;
+    case 3:
       // Settings
       settings_window_push();
       break;
@@ -61,13 +66,18 @@ static void window_load(Window *window) {
   };
 
   s_menu_items[2] = (SimpleMenuItem) {
+    .title = "Visualizations",
+    .callback = menu_select_callback
+  };
+
+  s_menu_items[3] = (SimpleMenuItem) {
     .title = "Settings",
     .callback = menu_select_callback
   };
 
   s_menu_section = (SimpleMenuSection) {
     .items = s_menu_items,
-    .num_items = 3
+    .num_items = 4
   };
 
   // Create menu layer

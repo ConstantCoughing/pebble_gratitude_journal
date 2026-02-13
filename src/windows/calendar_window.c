@@ -1,4 +1,5 @@
 #include "calendar_window.h"
+#include "entry_detail_window.h"
 #include "../data/entry.h"
 #include "../data/storage.h"
 #include "../utils/date_utils.h"
@@ -8,21 +9,7 @@
 #define GRID_START_Y 30
 #define GRID_START_X 4
 
-// Mood colors for color platforms
-#ifdef PBL_COLOR
-static const GColor MOOD_COLORS[9] = {
-  GColorBlue,        // Sad
-  GColorOrange,      // Anxious
-  GColorRed,         // Stressed
-  GColorPurple,      // Tired
-  GColorLightGray,   // Neutral
-  GColorCyan,        // Content
-  GColorYellow,      // Happy
-  GColorMagenta,     // Excited
-  GColorGreen        // Grateful
-};
-#else
-// Mood icon resource IDs for monochrome platforms
+// Mood icon resource IDs (used on all platforms)
 static uint32_t get_mood_icon_resource(Mood mood) {
   switch (mood) {
     case MOOD_SAD: return RESOURCE_ID_MOOD_SAD_14;
@@ -37,7 +24,6 @@ static uint32_t get_mood_icon_resource(Mood mood) {
     default: return RESOURCE_ID_MOOD_NEUTRAL_14;
   }
 }
-#endif
 
 typedef struct {
   time_t month_start;
@@ -130,26 +116,25 @@ static void calendar_layer_update_proc(Layer *layer, GContext *ctx) {
                       GTextOverflowModeTrailingEllipsis,
                       GTextAlignmentCenter, NULL);
 
-    // Draw mood indicator
+    // Draw mood indicator using emoji icons
     if (s_cache.has_entry[grid_index]) {
-#ifdef PBL_COLOR
-      graphics_context_set_fill_color(ctx, MOOD_COLORS[s_cache.day_moods[grid_index]]);
-      graphics_fill_circle(ctx, GPoint(x + CELL_SIZE - 4, y + 4), 3);
-#else
-      // Draw mood icon for monochrome
       GBitmap *icon = gbitmap_create_with_resource(get_mood_icon_resource(s_cache.day_moods[grid_index]));
       if (icon) {
-        GRect icon_rect = GRect(x + CELL_SIZE - 7, y + 1, 6, 6);
+        // Draw icon in bottom-right corner of cell
+        GRect icon_rect = GRect(x + CELL_SIZE - 8, y + CELL_SIZE - 8, 6, 6);
         graphics_draw_bitmap_in_rect(ctx, icon, icon_rect);
         gbitmap_destroy(icon);
       }
-#endif
     }
   }
 }
 
 static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
-  // TODO: Show entry details for selected day
+  // Show entry details for today (current selected day)
+  // In a more advanced version, this would track the selected cell
+  // For now, show today's entries
+  time_t today = date_get_today();
+  entry_detail_window_push(today);
 }
 
 static void up_click_handler(ClickRecognizerRef recognizer, void *context) {

@@ -3,7 +3,7 @@
   "shortName": "Gratitude",
   "longName": "Gratitude Journal",
   "companyName": "Your Name",
-  "versionLabel": "0.1.0",
+  "versionLabel": "0.1.1",
   "sdkVersion": "3",
   "targetPlatforms": ["aplite", "basalt", "chalk", "diorite"],
   "capabilities": [""],

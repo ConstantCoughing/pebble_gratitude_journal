@@ -32,3 +32,12 @@ bool storage_is_near_capacity(void);
 
 // Get storage utilization percentage (0-100)
 uint8_t storage_get_utilization(void);
+
+// Update an existing entry by index
+bool storage_update_entry(uint16_t index, const Entry *entry);
+
+// Delete an entry by index
+bool storage_delete_entry(uint16_t index);
+
+// Get entry by index
+bool storage_get_entry_by_index(uint16_t index, Entry *entry);
