@@ -1,0 +1,26 @@
+{
+  "name": "gratitude-journal",
+  "author": "Your Name",
+  "version": "0.1.0",
+  "keywords": ["gratitude", "journal", "mood", "wellness"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "sdkVersion": "3",
+    "enableMultiJS": false,
+    "targetPlatforms": ["aplite", "basalt", "chalk", "diorite"],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": [],
+    "resources": {
+      "media": [
+        {
+          "type": "png",
+          "name": "APP_ICON",
+          "file": "images/app_icon_25.png"
+        }
+      ]
+    }
+  }
+}
