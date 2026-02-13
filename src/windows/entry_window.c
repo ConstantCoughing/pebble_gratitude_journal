@@ -49,6 +49,8 @@ static uint32_t get_mood_icon_resource(Mood mood) {
 }
 
 typedef enum {
+  STAGE_INPUT_METHOD,
+  STAGE_VOICE_INPUT,
   STAGE_CANNED_RESPONSE,
   STAGE_MOOD_SELECTION,
   STAGE_COMPLETE
@@ -56,13 +58,128 @@ typedef enum {
 
 static Window *s_window;
 static MenuLayer *s_menu_layer;
+static TextLayer *s_voice_preview_layer;
+static DictationSession *s_dictation_session;
 static EntryStage s_current_stage;
 static uint16_t s_selected_canned_flags;
 static Mood s_selected_mood;
+static char s_voice_text[MAX_ENTRY_TEXT_LENGTH + 1];
 
 // Forward declarations
+static void show_input_method_menu(void);
+static void show_voice_input(void);
+static void show_canned_response_menu(void);
 static void show_mood_selection(void);
 static void save_and_close(void);
+
+// Voice input callbacks
+static void dictation_session_callback(DictationSession *session, DictationSessionStatus status,
+                                       char *transcription, void *context) {
+  if (status == DictationSessionStatusSuccess && transcription) {
+    // Copy transcription (enforce 140 char limit)
+    strncpy(s_voice_text, transcription, MAX_ENTRY_TEXT_LENGTH);
+    s_voice_text[MAX_ENTRY_TEXT_LENGTH] = '\0';
+
+    APP_LOG(APP_LOG_LEVEL_INFO, "Voice input successful: %s", s_voice_text);
+
+    // Proceed to mood selection
+    show_mood_selection();
+  } else {
+    APP_LOG(APP_LOG_LEVEL_WARNING, "Voice input failed, status: %d", (int)status);
+
+    // Fall back to canned responses
+    show_canned_response_menu();
+  }
+
+  // Clean up session
+  dictation_session_destroy(s_dictation_session);
+  s_dictation_session = NULL;
+}
+
+// Input method menu callbacks
+static uint16_t input_method_get_num_rows(MenuLayer *menu_layer, uint16_t section_index, void *context) {
+  return 2;  // Voice Input, Canned Responses
+}
+
+static void input_method_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index, void *context) {
+  if (cell_index->row == 0) {
+    menu_cell_basic_draw(ctx, cell_layer, "Voice Input", "Speak your entry", NULL);
+  } else {
+    menu_cell_basic_draw(ctx, cell_layer, "Canned Responses", "Select from list", NULL);
+  }
+}
+
+static void input_method_select(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
+  if (cell_index->row == 0) {
+    // Voice input
+    show_voice_input();
+  } else {
+    // Canned responses
+    show_canned_response_menu();
+  }
+}
+
+static void show_input_method_menu(void) {
+  s_current_stage = STAGE_INPUT_METHOD;
+
+  if (s_menu_layer) {
+    menu_layer_destroy(s_menu_layer);
+  }
+
+  Layer *window_layer = window_get_root_layer(s_window);
+  GRect bounds = layer_get_bounds(window_layer);
+
+  s_menu_layer = menu_layer_create(bounds);
+  menu_layer_set_click_config_onto_window(s_menu_layer, s_window);
+  menu_layer_set_callbacks(s_menu_layer, NULL, (MenuLayerCallbacks) {
+    .get_num_rows = input_method_get_num_rows,
+    .draw_row = input_method_draw_row,
+    .select_click = input_method_select
+  });
+
+  layer_add_child(window_layer, menu_layer_get_layer(s_menu_layer));
+}
+
+static void show_voice_input(void) {
+  s_current_stage = STAGE_VOICE_INPUT;
+
+  // Create dictation session
+  s_dictation_session = dictation_session_create(MAX_ENTRY_TEXT_LENGTH,
+                                                  dictation_session_callback,
+                                                  NULL);
+
+  if (s_dictation_session) {
+    // Start voice input
+    dictation_session_start(s_dictation_session);
+    APP_LOG(APP_LOG_LEVEL_INFO, "Voice input started");
+  } else {
+    // Voice not available, fall back
+    APP_LOG(APP_LOG_LEVEL_ERROR, "Failed to create dictation session");
+    show_canned_response_menu();
+  }
+}
+
+static void show_canned_response_menu(void) {
+  s_current_stage = STAGE_CANNED_RESPONSE;
+  s_voice_text[0] = '\0';  // Clear voice text
+
+  if (s_menu_layer) {
+    menu_layer_destroy(s_menu_layer);
+  }
+
+  Layer *window_layer = window_get_root_layer(s_window);
+  GRect bounds = layer_get_bounds(window_layer);
+
+  s_menu_layer = menu_layer_create(bounds);
+  menu_layer_set_click_config_onto_window(s_menu_layer, s_window);
+  menu_layer_set_callbacks(s_menu_layer, NULL, (MenuLayerCallbacks) {
+    .get_num_rows = canned_menu_get_num_rows,
+    .draw_row = canned_menu_draw_row,
+    .select_click = canned_menu_select
+  });
+
+  layer_add_child(window_layer, menu_layer_get_layer(s_menu_layer));
+}
 
 // Canned response menu callbacks
 static uint16_t canned_menu_get_num_rows(MenuLayer *menu_layer, uint16_t section_index, void *context) {
@@ -178,7 +295,19 @@ static void save_and_close(void) {
 
   // Create entry
   Entry entry;
-  entry_init(&entry, date_get_today(), s_selected_mood, s_selected_canned_flags);
+
+  // Check if we have voice text or canned responses
+  if (s_voice_text[0] != '\0') {
+    // Voice input - use voice text directly
+    entry.date = date_normalize_to_midnight(date_get_today());
+    entry.mood = s_selected_mood;
+    entry.canned_flags = 0;  // No canned flags for voice
+    strncpy(entry.text, s_voice_text, MAX_ENTRY_TEXT_LENGTH);
+    entry.text[MAX_ENTRY_TEXT_LENGTH] = '\0';
+  } else {
+    // Canned responses - use traditional method
+    entry_init(&entry, date_get_today(), s_selected_mood, s_selected_canned_flags);
+  }
 
   // Check storage capacity before saving
   bool was_near_capacity = storage_is_near_capacity();
@@ -199,24 +328,15 @@ static void save_and_close(void) {
 }
 
 static void window_load(Window *window) {
-  Layer *window_layer = window_get_root_layer(window);
-  GRect bounds = layer_get_bounds(window_layer);
-
   // Initialize state
-  s_current_stage = STAGE_CANNED_RESPONSE;
+  s_current_stage = STAGE_INPUT_METHOD;
   s_selected_canned_flags = 0;
   s_selected_mood = MOOD_NEUTRAL;
+  s_voice_text[0] = '\0';
+  s_dictation_session = NULL;
 
-  // Create menu layer for canned responses
-  s_menu_layer = menu_layer_create(bounds);
-  menu_layer_set_click_config_onto_window(s_menu_layer, window);
-  menu_layer_set_callbacks(s_menu_layer, NULL, (MenuLayerCallbacks) {
-    .get_num_rows = canned_menu_get_num_rows,
-    .draw_row = canned_menu_draw_row,
-    .select_click = canned_menu_select
-  });
-
-  layer_add_child(window_layer, menu_layer_get_layer(s_menu_layer));
+  // Show input method selection
+  show_input_method_menu();
 }
 
 static void window_unload(Window *window) {

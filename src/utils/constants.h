@@ -15,7 +15,7 @@
 #define STORAGE_KEY_ENTRIES_START 100
 
 // App version
-#define APP_VERSION "0.1.1"
+#define APP_VERSION "0.1.2"
 
 // Prompt constants
 #define NUM_PROMPTS 50
