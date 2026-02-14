@@ -91,3 +91,5 @@ dist/
 *.exe
 IMPLEMENTATION_SUMMARY.md
 tech_spec.md
+DEVELOPMENT.md
+plan.md
