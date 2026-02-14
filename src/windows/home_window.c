@@ -14,6 +14,7 @@ static SimpleMenuItem s_menu_items[4];
 static char s_streak_text[32];
 
 static void menu_select_callback(int index, void *context) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: menu item %d selected", index);
   switch (index) {
     case 0:
       // Add Entry
@@ -35,6 +36,7 @@ static void menu_select_callback(int index, void *context) {
 }
 
 static void window_load(Window *window) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: window_load called");
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
 
@@ -89,6 +91,8 @@ static void window_load(Window *window) {
     1,
     NULL
   );
+
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: menu layer created at y=%d", menu_y);
 
   layer_add_child(window_layer, simple_menu_layer_get_layer(s_menu_layer));
 
