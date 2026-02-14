@@ -22,10 +22,14 @@ static const char* MOOD_LABELS[9] = {
 
 // Filter menu callbacks
 static uint16_t filter_menu_get_num_rows(MenuLayer *menu, uint16_t section, void *context) {
+  (void)menu;
+  (void)section;
+  (void)context;
   return 5;  // Text Search, Mood Filter, Date Filter, Tag Filter, Clear All
 }
 
 static void filter_menu_draw_row(GContext *ctx, const Layer *cell, MenuIndex *index, void *context) {
+  (void)context;
   switch (index->row) {
     case 0:
       menu_cell_basic_draw(ctx, cell, "Text Search", "Search entry text", NULL);
@@ -60,8 +64,9 @@ static void execute_search(void) {
   }
 }
 
-static void filter_menu_select(MenuLayer *menu, MenuIndex *index, void *context) {
-  switch (index->row) {
+static void filter_menu_select(int index, void *context) {
+  (void)context;
+  switch (index) {
     case 0:
       // Text search - for simplicity, search for "happy" as example
       strcpy(s_criteria.query, "");  // Empty = match all

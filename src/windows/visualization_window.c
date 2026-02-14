@@ -12,7 +12,7 @@ typedef enum {
 
 static Window *s_window;
 static Layer *s_viz_layer;
-static SimpleMenuLayer *s_menu_layer;
+static MenuLayer *s_menu_layer;
 static VisualizationType s_current_viz;
 static bool s_showing_menu = true;
 
@@ -281,7 +281,7 @@ static void menu_select(MenuLayer *menu_layer, MenuIndex *cell_index, void *cont
   s_showing_menu = false;
 
   // Hide menu, show viz
-  layer_set_hidden(simple_menu_layer_get_layer(s_menu_layer), true);
+  layer_set_hidden(menu_layer_get_layer(s_menu_layer), true);
   layer_set_hidden(s_viz_layer, false);
   layer_mark_dirty(s_viz_layer);
 }
@@ -292,7 +292,7 @@ static void back_click_handler(ClickRecognizerRef recognizer, void *context) {
   } else {
     // Go back to menu
     s_showing_menu = true;
-    layer_set_hidden(simple_menu_layer_get_layer(s_menu_layer), false);
+    layer_set_hidden(menu_layer_get_layer(s_menu_layer), false);
     layer_set_hidden(s_viz_layer, true);
   }
 }

@@ -58,7 +58,6 @@ typedef enum {
 
 static Window *s_window;
 static MenuLayer *s_menu_layer;
-static TextLayer *s_voice_preview_layer;
 static DictationSession *s_dictation_session;
 static EntryStage s_current_stage;
 static uint16_t s_selected_canned_flags;
