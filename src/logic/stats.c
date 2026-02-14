@@ -17,7 +17,6 @@ uint16_t stats_calculate_streak(void) {
 
   // Entries are sorted newest first
   time_t today = date_get_today();
-  time_t current_date = today;
   uint16_t streak = 0;
 
   // Check if there's an entry for today or yesterday
@@ -70,7 +69,7 @@ void stats_update_after_entry(const Entry *entry) {
   stats.last_entry_date = entry->date;
 
   // Update mood count
-  if (entry->mood >= MOOD_SAD && entry->mood <= MOOD_GRATEFUL) {
+  if (entry->mood <= MOOD_GRATEFUL) {
     stats.mood_counts[entry->mood]++;
   }
 

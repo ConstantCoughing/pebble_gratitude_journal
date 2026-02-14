@@ -2,11 +2,12 @@
   "uuid": "86285032-f683-41a3-ae10-db23804f849c",
   "shortName": "Gratitude",
   "longName": "Gratitude Journal",
+  "displayName": "Gratitude Journal",
   "companyName": "Your Name",
   "versionLabel": "0.1.2",
   "sdkVersion": "3",
+  "projectType": "native",
   "targetPlatforms": ["aplite", "basalt", "chalk", "diorite"],
-  "capabilities": [""],
   "watchapp": {
     "watchface": false
   },

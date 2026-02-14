@@ -21,8 +21,8 @@ static uint32_t get_mood_icon_resource(Mood mood) {
     case MOOD_HAPPY: return RESOURCE_ID_MOOD_HAPPY_14;
     case MOOD_EXCITED: return RESOURCE_ID_MOOD_EXCITED_14;
     case MOOD_GRATEFUL: return RESOURCE_ID_MOOD_GRATEFUL_14;
-    default: return RESOURCE_ID_MOOD_NEUTRAL_14;
   }
+  return RESOURCE_ID_MOOD_NEUTRAL_14;
 }
 
 typedef struct {
@@ -71,8 +71,6 @@ static void load_month_data(time_t month_date) {
 }
 
 static void calendar_layer_update_proc(Layer *layer, GContext *ctx) {
-  GRect bounds = layer_get_bounds(layer);
-
   // Draw day headers
   graphics_context_set_text_color(ctx, GColorBlack);
   for (uint8_t dow = 0; dow < 7; dow++) {

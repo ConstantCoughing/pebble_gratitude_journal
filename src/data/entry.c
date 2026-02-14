@@ -101,7 +101,7 @@ bool entry_validate(const Entry *entry) {
   }
 
   // Check mood is valid
-  if (entry->mood < MOOD_SAD || entry->mood > MOOD_GRATEFUL) {
+  if (entry->mood > MOOD_GRATEFUL) {
     return false;
   }
 
@@ -119,7 +119,7 @@ bool entry_validate(const Entry *entry) {
 }
 
 const char* mood_to_string(Mood mood) {
-  if (mood < MOOD_SAD || mood > MOOD_GRATEFUL) {
+  if (mood > MOOD_GRATEFUL) {
     return "Unknown";
   }
   return MOOD_STRINGS[mood];

@@ -72,6 +72,17 @@ static void show_canned_response_menu(void);
 static void show_mood_selection(void);
 static void save_and_close(void);
 
+// Menu callback forward declarations
+static uint16_t input_method_get_num_rows(MenuLayer *menu_layer, uint16_t section_index, void *context);
+static void input_method_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index, void *context);
+static void input_method_select(MenuLayer *menu_layer, MenuIndex *cell_index, void *context);
+static uint16_t canned_menu_get_num_rows(MenuLayer *menu_layer, uint16_t section_index, void *context);
+static void canned_menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index, void *context);
+static void canned_menu_select(MenuLayer *menu_layer, MenuIndex *cell_index, void *context);
+static uint16_t mood_menu_get_num_rows(MenuLayer *menu_layer, uint16_t section_index, void *context);
+static void mood_menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index, void *context);
+static void mood_menu_select(MenuLayer *menu_layer, MenuIndex *cell_index, void *context);
+
 // Voice input callbacks
 static void dictation_session_callback(DictationSession *session, DictationSessionStatus status,
                                        char *transcription, void *context) {
@@ -183,10 +194,14 @@ static void show_canned_response_menu(void) {
 
 // Canned response menu callbacks
 static uint16_t canned_menu_get_num_rows(MenuLayer *menu_layer, uint16_t section_index, void *context) {
+  (void)menu_layer;
+  (void)section_index;
+  (void)context;
   return NUM_CANNED_RESPONSES + 1;  // +1 for "Done" option
 }
 
 static void canned_menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index, void *context) {
+  (void)context;
   if (cell_index->row == NUM_CANNED_RESPONSES) {
     menu_cell_basic_draw(ctx, cell_layer, "Done", NULL, NULL);
   } else {
@@ -197,6 +212,8 @@ static void canned_menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuInd
 }
 
 static void canned_menu_select(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
+  (void)menu_layer;
+  (void)context;
   if (cell_index->row == NUM_CANNED_RESPONSES) {
     // Done button - proceed to mood selection
     if (s_selected_canned_flags == 0) {

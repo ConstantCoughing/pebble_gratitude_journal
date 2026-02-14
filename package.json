@@ -6,6 +6,9 @@
   "private": true,
   "dependencies": {},
   "pebble": {
+    "uuid": "86285032-f683-41a3-ae10-db23804f849c",
+    "displayName": "Gratitude Journal",
+    "projectType": "native",
     "sdkVersion": "3",
     "enableMultiJS": false,
     "targetPlatforms": ["aplite", "basalt", "chalk", "diorite"],
@@ -19,6 +22,96 @@
           "type": "png",
           "name": "APP_ICON",
           "file": "images/app_icon_25.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_SAD_14",
+          "file": "images/mood_sad_14.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_ANXIOUS_14",
+          "file": "images/mood_anxious_14.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_STRESSED_14",
+          "file": "images/mood_stressed_14.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_TIRED_14",
+          "file": "images/mood_tired_14.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_NEUTRAL_14",
+          "file": "images/mood_neutral_14.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_CONTENT_14",
+          "file": "images/mood_content_14.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_HAPPY_14",
+          "file": "images/mood_happy_14.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_EXCITED_14",
+          "file": "images/mood_excited_14.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_GRATEFUL_14",
+          "file": "images/mood_grateful_14.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_SAD_28",
+          "file": "images/mood_sad_28.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_ANXIOUS_28",
+          "file": "images/mood_anxious_28.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_STRESSED_28",
+          "file": "images/mood_stressed_28.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_TIRED_28",
+          "file": "images/mood_tired_28.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_NEUTRAL_28",
+          "file": "images/mood_neutral_28.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_CONTENT_28",
+          "file": "images/mood_content_28.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_HAPPY_28",
+          "file": "images/mood_happy_28.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_EXCITED_28",
+          "file": "images/mood_excited_28.png"
+        },
+        {
+          "type": "png",
+          "name": "MOOD_GRATEFUL_28",
+          "file": "images/mood_grateful_28.png"
         }
       ]
     }

@@ -25,7 +25,7 @@ typedef enum {
 
 static Window *s_window;
 static MenuLayer *s_menu_layer;
-static EditStage *s_current_stage;
+static EditStage s_current_stage;
 static uint16_t s_selected_canned_flags;
 static Mood s_selected_mood;
 static uint16_t s_entry_index;

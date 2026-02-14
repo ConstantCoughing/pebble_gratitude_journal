@@ -167,7 +167,7 @@ void storage_load_stats(Stats *stats) {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "storage_load_stats: loaded %d entries for stats calculation", count);
 
   for (uint16_t i = 0; i < count; i++) {
-    if (entries[i].mood >= MOOD_SAD && entries[i].mood <= MOOD_GRATEFUL) {
+    if (entries[i].mood <= MOOD_GRATEFUL) {
       stats->mood_counts[entries[i].mood]++;
     } else {
       APP_LOG(APP_LOG_LEVEL_WARNING, "storage_load_stats: invalid mood value %d for entry %d", entries[i].mood, i);
