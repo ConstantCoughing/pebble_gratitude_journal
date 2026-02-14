@@ -1,23 +1,54 @@
 # Build Guide - Pebble Gratitude Journal
 
-## ✅ Pre-Build Checklist
+## Pre-Build Checklist
 
-All prerequisites are complete:
-- [x] Project structure initialized
-- [x] All 20 source files implemented
-- [x] Mood icons created (18 PNG files)
-- [x] App icon created (app_icon_25.png)
-- [x] Resources configured in appinfo.json
-- [x] UUID generated
+Before building this project, ensure you have the following installed:
+
+- **Pebble SDK**  
+  Install the Pebble SDK and set up your environment.  
+  [Pebble SDK Installation Guide](https://developer.rebble.io/)
+- **Python 3.x**  
+  Install via Homebrew:  
+  ```bash
+  brew install python
+  ```
+- **pip**  
+  Comes with Python 3.x installed via Homebrew.
+- **C Compiler (GCC/Clang)**  
+  Install Xcode Command Line Tools:  
+  ```bash
+  xcode-select --install
+  ```
+- **Git**  
+  Install via Homebrew:  
+  ```bash
+  brew install git
+  ```
+- **Node.js & npm**  
+  Install via Homebrew:  
+  ```bash
+  brew install node
+  ```
+- **Make**  
+  Install via Homebrew:  
+  ```bash
+  brew install make
+  ```
+
+
+---
+
+**Optional (for development):**
+
+- VS Code or other IDE
+- Mobile device or emulator for testing the Pebble app
+
+> Make sure all environment variables required by the Pebble SDK are set.
 
 ## Quick Build & Test
 
-### 1. Build the Project
 
-```bash
-cd /Users/pdosa/Projects/pebble_gratitude_journal
-pebble build
-```
+---
 
 **Expected Output:**
 ```
@@ -28,6 +59,8 @@ pebble build
 ```
 
 ### 2. Install to Emulator
+
+---
 
 **For color, rectangular display (recommended for first test):**
 ```bash
@@ -60,32 +93,25 @@ Keep this terminal open to see debug output and catch any errors.
 ### Test 2: Create First Entry
 1. Select "Add Entry"
 2. Multi-select screen appears with 10 canned responses
-3. Select 2-3 responses (checkmarks appear)
 4. Select "Done"
 5. Mood selection screen appears with 9 moods + icons
-6. Select a mood (e.g., "Happy")
 7. Returns to home screen automatically
 
 ### Test 3: Verify Entry Saved
 1. From home screen, select "View Calendar"
-2. Current month displays with header
 3. Today's date is highlighted
-4. Mood indicator appears on today's date (colored dot or icon)
 
 ### Test 4: Calendar Navigation
 1. Press DOWN button → next month
 2. Press UP button → previous month
-3. Navigate back to current month
 
 ### Test 5: Streak Counter
 1. Return to home screen (BACK button)
 2. Streak should show "🔥 1 Day Streak"
-3. Create another entry (repeat Test 2)
 4. Return to home → still shows "🔥 1 Day Streak" (same day)
 
 ### Test 6: Settings
 1. From home screen, select "Settings"
-2. Storage shows: "1 / 180 (0%)" or similar
 3. Prompt Mode shows: "Random" or "Sequential"
 4. Tap Prompt Mode to toggle
 5. About shows: "v0.1.0"
@@ -93,8 +119,6 @@ Keep this terminal open to see debug output and catch any errors.
 ## Platform-Specific Testing
 
 ### Aplite (Monochrome, Rectangular)
-```bash
-pebble install --emulator aplite
 ```
 
 **Check:**
