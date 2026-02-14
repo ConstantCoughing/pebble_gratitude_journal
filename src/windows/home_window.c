@@ -6,6 +6,9 @@
 #include "../logic/prompts.h"
 #include "../logic/stats.h"
 
+// DEBUG: Temporary debug flag - REMOVE BEFORE RELEASE
+#define DEBUG_LOGGING 1
+
 static Window *s_window;
 static TextLayer *s_prompt_layer;
 static SimpleMenuLayer *s_menu_layer;
@@ -14,31 +17,53 @@ static SimpleMenuItem s_menu_items[4];
 static char s_streak_text[32];
 
 static void menu_select_callback(int index, void *context) {
+  #ifdef DEBUG_LOGGING  // DEBUG: REMOVE THIS BLOCK
   APP_LOG(APP_LOG_LEVEL_INFO, "home_window: menu item %d selected", index);
+  #endif  // DEBUG
+
   switch (index) {
     case 0:
       // Add Entry
+      #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
+      APP_LOG(APP_LOG_LEVEL_INFO, "home_window: launching entry_window");
+      #endif  // DEBUG
       entry_window_push();
       break;
     case 1:
       // View Calendar
+      #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
+      APP_LOG(APP_LOG_LEVEL_INFO, "home_window: launching calendar_window");
+      #endif  // DEBUG
       calendar_window_push();
       break;
     case 2:
       // Visualizations
+      #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
+      APP_LOG(APP_LOG_LEVEL_INFO, "home_window: launching visualization_window");
+      #endif  // DEBUG
       visualization_window_push();
       break;
     case 3:
       // Settings
+      #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
+      APP_LOG(APP_LOG_LEVEL_INFO, "home_window: launching settings_window");
+      #endif  // DEBUG
       settings_window_push();
       break;
   }
 }
 
 static void window_load(Window *window) {
+  #ifdef DEBUG_LOGGING  // DEBUG: REMOVE THIS BLOCK
   APP_LOG(APP_LOG_LEVEL_INFO, "home_window: window_load called");
+  #endif  // DEBUG
+
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
+
+  #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: bounds w=%d h=%d", bounds.size.w, bounds.size.h);
+  #endif  // DEBUG
 
 #ifdef PBL_ROUND
   int padding = 20;
@@ -55,6 +80,10 @@ static void window_load(Window *window) {
   text_layer_set_text_alignment(s_prompt_layer, GTextAlignmentCenter);
   text_layer_set_overflow_mode(s_prompt_layer, GTextOverflowModeWordWrap);
   layer_add_child(window_layer, text_layer_get_layer(s_prompt_layer));
+
+  #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: prompt layer created");
+  #endif  // DEBUG
 
   // Setup menu items
   s_menu_items[0] = (SimpleMenuItem) {
@@ -82,6 +111,10 @@ static void window_load(Window *window) {
     .num_items = 4
   };
 
+  #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: menu items configured (4 items)");
+  #endif  // DEBUG
+
   // Create menu layer
   int menu_y = prompt_height + 10;
   s_menu_layer = simple_menu_layer_create(
@@ -92,13 +125,25 @@ static void window_load(Window *window) {
     NULL
   );
 
-  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: menu layer created at y=%d", menu_y);
+  #ifdef DEBUG_LOGGING  // DEBUG: REMOVE THIS BLOCK
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: menu layer created at y=%d, height=%d",
+          menu_y, bounds.size.h - menu_y - 20);
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: menu_layer pointer = %p", s_menu_layer);
+  #endif  // DEBUG
 
   layer_add_child(window_layer, simple_menu_layer_get_layer(s_menu_layer));
+
+  #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: menu layer added to window");
+  #endif  // DEBUG
 
   // Create streak status bar
   uint16_t streak = stats_calculate_streak();
   snprintf(s_streak_text, sizeof(s_streak_text), "🔥 %d Day Streak", streak);
+
+  #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: streak = %d days", streak);
+  #endif  // DEBUG
 
   // Status bar layer (at bottom)
   TextLayer *status_layer = text_layer_create(
@@ -112,20 +157,57 @@ static void window_load(Window *window) {
   layer_add_child(window_layer, text_layer_get_layer(status_layer));
 }
 
+// DEBUG: REMOVE THIS ENTIRE FUNCTION BLOCK
+#ifdef DEBUG_LOGGING
+static void test_button_handler(ClickRecognizerRef recognizer, void *context) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: BUTTON PRESSED!");
+}
+
+static void click_config_provider(void *context) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: click_config_provider called");
+  window_single_click_subscribe(BUTTON_ID_SELECT, test_button_handler);
+  window_single_click_subscribe(BUTTON_ID_UP, test_button_handler);
+  window_single_click_subscribe(BUTTON_ID_DOWN, test_button_handler);
+  window_single_click_subscribe(BUTTON_ID_BACK, test_button_handler);
+}
+#endif  // DEBUG
+
 static void window_unload(Window *window) {
+  #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: window_unload called");
+  #endif  // DEBUG
+
   text_layer_destroy(s_prompt_layer);
   simple_menu_layer_destroy(s_menu_layer);
 }
 
 void home_window_push(void) {
+  #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: home_window_push called");
+  #endif  // DEBUG
+
   if (!s_window) {
+    #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
+    APP_LOG(APP_LOG_LEVEL_INFO, "home_window: creating new window");
+    #endif  // DEBUG
+
     s_window = window_create();
     window_set_window_handlers(s_window, (WindowHandlers) {
       .load = window_load,
       .unload = window_unload
     });
+
+    // DEBUG: REMOVE THIS LINE - Temporarily test button detection
+    #ifdef DEBUG_LOGGING
+    window_set_click_config_provider(s_window, click_config_provider);
+    #endif  // DEBUG
   }
+
   window_stack_push(s_window, true);
+
+  #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: window pushed to stack");
+  #endif  // DEBUG
 }
 
 void home_window_destroy(void) {
