@@ -7,7 +7,7 @@
   "versionLabel": "0.1.2",
   "sdkVersion": "3",
   "projectType": "native",
-  "targetPlatforms": ["aplite", "basalt", "chalk", "diorite"],
+  "targetPlatforms": ["basalt", "chalk", "diorite"],
   "watchapp": {
     "watchface": false
   },

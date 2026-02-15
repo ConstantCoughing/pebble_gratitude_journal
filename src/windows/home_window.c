@@ -16,6 +16,34 @@ static SimpleMenuSection s_menu_section;
 static SimpleMenuItem s_menu_items[4];
 static char s_streak_text[32];
 
+// DEBUG: REMOVE THIS ENTIRE SECTION
+#ifdef DEBUG_LOGGING
+static void debug_up_click_handler(ClickRecognizerRef recognizer, void *context) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: UP button pressed");
+}
+
+static void debug_select_click_handler(ClickRecognizerRef recognizer, void *context) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: SELECT button pressed");
+}
+
+static void debug_down_click_handler(ClickRecognizerRef recognizer, void *context) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: DOWN button pressed");
+}
+
+static void debug_back_click_handler(ClickRecognizerRef recognizer, void *context) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: BACK button pressed");
+}
+
+static void click_config_provider(void *context) {
+  window_single_click_subscribe(BUTTON_ID_UP, debug_up_click_handler);
+  window_single_click_subscribe(BUTTON_ID_SELECT, debug_select_click_handler);
+  window_single_click_subscribe(BUTTON_ID_DOWN, debug_down_click_handler);
+  window_single_click_subscribe(BUTTON_ID_BACK, debug_back_click_handler);
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: click config provider set");
+}
+#endif
+// END DEBUG SECTION
+
 static void menu_select_callback(int index, void *context) {
   #ifdef DEBUG_LOGGING  // DEBUG: REMOVE THIS BLOCK
   APP_LOG(APP_LOG_LEVEL_INFO, "home_window: menu item %d selected", index);

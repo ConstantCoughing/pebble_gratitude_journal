@@ -11,7 +11,7 @@
     "projectType": "native",
     "sdkVersion": "3",
     "enableMultiJS": false,
-    "targetPlatforms": ["aplite", "basalt", "chalk", "diorite"],
+    "targetPlatforms": ["basalt", "chalk", "diorite"],
     "watchapp": {
       "watchface": false
     },
