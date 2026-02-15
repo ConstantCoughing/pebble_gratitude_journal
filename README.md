@@ -15,8 +15,7 @@ A gratitude journal app for Pebble smartwatches that helps you track daily momen
 - **Custom Prompts**: Add, manage, and delete up to 20 custom gratitude prompts
 - **Data Export**: Export your journal data (basic export structure implemented)
 - **Persistent Storage**: Store up to 180 entries locally on your Pebble with automatic circular buffer management
-- **Cross-Platform**: Works on all Pebble models (Aplite, Basalt, Chalk, Diorite)
-
+  
 ## Installation
 
 ### Prerequisites
