@@ -7,8 +7,8 @@
 #include "../logic/stats.h"
 #include <string.h>
 
-// DEBUG: Temporary debug flag - REMOVE BEFORE RELEASE
-#define DEBUG_LOGGING 1
+// Debug flag (set to 0 for release)
+#define DEBUG_LOGGING 0
 
 static Window *s_window;
 static TextLayer *s_prompt_layer;
