@@ -16,35 +16,10 @@ static SimpleMenuSection s_menu_section;
 static SimpleMenuItem s_menu_items[4];
 static char s_streak_text[32];
 
-// DEBUG: REMOVE THIS ENTIRE SECTION
-#ifdef DEBUG_LOGGING
-static void debug_up_click_handler(ClickRecognizerRef recognizer, void *context) {
-  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: UP button pressed");
-}
-
-static void debug_select_click_handler(ClickRecognizerRef recognizer, void *context) {
-  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: SELECT button pressed");
-}
-
-static void debug_down_click_handler(ClickRecognizerRef recognizer, void *context) {
-  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: DOWN button pressed");
-}
-
-static void debug_back_click_handler(ClickRecognizerRef recognizer, void *context) {
-  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: BACK button pressed");
-}
-
-static void click_config_provider(void *context) {
-  window_single_click_subscribe(BUTTON_ID_UP, debug_up_click_handler);
-  window_single_click_subscribe(BUTTON_ID_SELECT, debug_select_click_handler);
-  window_single_click_subscribe(BUTTON_ID_DOWN, debug_down_click_handler);
-  window_single_click_subscribe(BUTTON_ID_BACK, debug_back_click_handler);
-  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: click config provider set");
-}
-#endif
-// END DEBUG SECTION
-
 static void menu_select_callback(int index, void *context) {
+  // DEBUG: REMOVE - Force log without ifdef to ensure it shows
+  APP_LOG(APP_LOG_LEVEL_INFO, "!!! MENU CALLBACK FIRED !!! index=%d", index);
+
   #ifdef DEBUG_LOGGING  // DEBUG: REMOVE THIS BLOCK
   APP_LOG(APP_LOG_LEVEL_INFO, "home_window: menu item %d selected", index);
   #endif  // DEBUG
@@ -159,13 +134,7 @@ static void window_load(Window *window) {
   APP_LOG(APP_LOG_LEVEL_INFO, "home_window: menu_layer pointer = %p", s_menu_layer);
   #endif  // DEBUG
 
-  layer_add_child(window_layer, simple_menu_layer_get_layer(s_menu_layer));
-
-  #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
-  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: menu layer added to window");
-  #endif  // DEBUG
-
-  // Create streak status bar
+  // Create streak status bar BEFORE adding menu (so menu is on top)
   uint16_t streak = stats_calculate_streak();
   snprintf(s_streak_text, sizeof(s_streak_text), "🔥 %d Day Streak", streak);
 
@@ -183,22 +152,14 @@ static void window_load(Window *window) {
   text_layer_set_background_color(status_layer, GColorBlack);
   text_layer_set_text_color(status_layer, GColorWhite);
   layer_add_child(window_layer, text_layer_get_layer(status_layer));
-}
 
-// DEBUG: REMOVE THIS ENTIRE FUNCTION BLOCK
-#ifdef DEBUG_LOGGING
-static void test_button_handler(ClickRecognizerRef recognizer, void *context) {
-  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: BUTTON PRESSED!");
-}
+  // Add menu layer LAST so it's on top and receives clicks
+  layer_add_child(window_layer, simple_menu_layer_get_layer(s_menu_layer));
 
-static void click_config_provider(void *context) {
-  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: click_config_provider called");
-  window_single_click_subscribe(BUTTON_ID_SELECT, test_button_handler);
-  window_single_click_subscribe(BUTTON_ID_UP, test_button_handler);
-  window_single_click_subscribe(BUTTON_ID_DOWN, test_button_handler);
-  window_single_click_subscribe(BUTTON_ID_BACK, test_button_handler);
+  #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: menu layer added to window (on top)");
+  #endif  // DEBUG
 }
-#endif  // DEBUG
 
 static void window_unload(Window *window) {
   #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
@@ -224,11 +185,6 @@ void home_window_push(void) {
       .load = window_load,
       .unload = window_unload
     });
-
-    // DEBUG: REMOVE THIS LINE - Temporarily test button detection
-    #ifdef DEBUG_LOGGING
-    window_set_click_config_provider(s_window, click_config_provider);
-    #endif  // DEBUG
   }
 
   window_stack_push(s_window, true);
