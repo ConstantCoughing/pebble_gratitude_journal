@@ -122,11 +122,18 @@ static void window_load(Window *window) {
   int menu_y = prompt_height + 10;
   s_menu_layer = simple_menu_layer_create(
     GRect(0, menu_y, bounds.size.w, bounds.size.h - menu_y - 20),
-    window,
+    s_window,  // Use s_window instead of window parameter
     &s_menu_section,
     1,
     NULL
   );
+
+  #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
+  APP_LOG(APP_LOG_LEVEL_INFO, "home_window: simple_menu_layer_create returned: %p", s_menu_layer);
+  if (s_menu_layer == NULL) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "home_window: FAILED TO CREATE MENU LAYER!");
+  }
+  #endif  // DEBUG
 
   #ifdef DEBUG_LOGGING  // DEBUG: REMOVE THIS BLOCK
   APP_LOG(APP_LOG_LEVEL_INFO, "home_window: menu layer created at y=%d, height=%d",
