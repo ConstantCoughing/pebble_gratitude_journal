@@ -65,6 +65,7 @@ static const char* PROMPTS[NUM_PROMPTS] = {
 const char* prompts_get_daily(void) {
   bool is_sequential = prompts_get_mode();
   time_t today = date_get_today();
+  uint8_t total_count = prompts_get_count();  // built-in + custom
 
   if (is_sequential) {
     // Sequential mode: increment daily
@@ -76,20 +77,25 @@ const char* prompts_get_daily(void) {
     // Check if we need to advance (new day)
     static time_t last_prompt_date = 0;
     if (last_prompt_date == 0 || !date_is_same_day(last_prompt_date, today)) {
-      index = (index + 1) % NUM_PROMPTS;
+      index = (index + 1) % total_count;
       persist_write_int(STORAGE_KEY_PROMPT_INDEX, index);
       last_prompt_date = today;
     }
 
-    return PROMPTS[index];
+    // Wrap index if total count changed (e.g. custom prompt deleted)
+    if (index >= total_count) {
+      index = index % total_count;
+    }
+
+    return prompts_get_by_index(index);
   } else {
     // Random mode: seed with day number for consistency
     struct tm *time_info = localtime(&today);
     uint32_t day_number = time_info->tm_yday + (time_info->tm_year * 365);
 
     // Simple pseudo-random based on day number
-    uint8_t index = day_number % NUM_PROMPTS;
-    return PROMPTS[index];
+    uint8_t index = day_number % total_count;
+    return prompts_get_by_index(index);
   }
 }
 

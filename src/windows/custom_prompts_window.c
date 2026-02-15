@@ -4,6 +4,35 @@
 
 static Window *s_window;
 static MenuLayer *s_menu_layer;
+static DictationSession *s_dictation_session;
+
+// Dictation callback for adding custom prompts via voice
+static void dictation_callback(DictationSession *session, DictationSessionStatus status,
+                                char *transcription, void *context) {
+  if (status == DictationSessionStatusSuccess && transcription) {
+    // Truncate to max custom prompt length
+    char prompt[CUSTOM_PROMPT_MAX_LENGTH + 1];
+    strncpy(prompt, transcription, CUSTOM_PROMPT_MAX_LENGTH);
+    prompt[CUSTOM_PROMPT_MAX_LENGTH] = '\0';
+
+    if (prompts_add_custom(prompt)) {
+      APP_LOG(APP_LOG_LEVEL_INFO, "Custom prompt added via voice: %s", prompt);
+    } else {
+      APP_LOG(APP_LOG_LEVEL_ERROR, "Failed to add custom prompt");
+    }
+
+    // Reload menu to show new prompt
+    if (s_menu_layer) {
+      menu_layer_reload_data(s_menu_layer);
+    }
+  } else {
+    APP_LOG(APP_LOG_LEVEL_WARNING, "Dictation failed for custom prompt, status: %d", (int)status);
+  }
+
+  // Cleanup
+  dictation_session_destroy(s_dictation_session);
+  s_dictation_session = NULL;
+}
 
 // Menu callbacks
 static uint16_t menu_get_num_rows(MenuLayer *menu_layer, uint16_t section_index, void *context) {
@@ -31,16 +60,17 @@ static void menu_select(MenuLayer *menu_layer, MenuIndex *cell_index, void *cont
   uint8_t custom_count = prompts_get_custom_count();
 
   if (cell_index->row == custom_count) {
-    // Add new prompt - for now just show a message
-    // In a full implementation, would use text input dialog
+    // Add new prompt via voice dictation
     if (custom_count < MAX_CUSTOM_PROMPTS) {
-      // For demonstration, add a sample prompt
-      prompts_add_custom("What inspired you today?");
-      menu_layer_reload_data(s_menu_layer);
+      s_dictation_session = dictation_session_create(CUSTOM_PROMPT_MAX_LENGTH,
+                                                      dictation_callback, NULL);
+      if (s_dictation_session) {
+        dictation_session_start(s_dictation_session);
+        APP_LOG(APP_LOG_LEVEL_INFO, "Dictation started for custom prompt");
+      } else {
+        APP_LOG(APP_LOG_LEVEL_ERROR, "Failed to create dictation session for custom prompt");
+      }
     }
-  } else {
-    // Long press would delete - for now just show info
-    // In full implementation, would show action menu (Edit/Delete)
   }
 }
 
@@ -72,6 +102,10 @@ static void window_load(Window *window) {
 }
 
 static void window_unload(Window *window) {
+  if (s_dictation_session) {
+    dictation_session_destroy(s_dictation_session);
+    s_dictation_session = NULL;
+  }
   menu_layer_destroy(s_menu_layer);
 }
 
