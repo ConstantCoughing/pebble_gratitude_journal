@@ -4,8 +4,6 @@ A gratitude journal app for Pebble smartwatches that helps you track daily momen
 
 ## Features
 
-### v0.1.1 (Current)
-
 - **Quick Entry Creation**: Create journal entries in under 30 seconds using 10 predefined canned responses
 - **Mood Tagging**: Tag each entry with one of 9 moods with emoji icon indicators
 - **Daily Prompts**: Get inspired by 50 built-in gratitude prompts that rotate daily (random or sequential)
@@ -63,7 +61,7 @@ A gratitude journal app for Pebble smartwatches that helps you track daily momen
 
 1. From the home screen, select **View Calendar**
 2. Use UP/DOWN buttons to navigate months
-3. Days with entries show small black dots
+3. Use UP/DOWN buttons to navigate dates with entries
 4. Current day is highlighted
 5. Press SELECT to view today's entry details
 
@@ -93,33 +91,6 @@ A gratitude journal app for Pebble smartwatches that helps you track daily momen
 5. **Custom Prompts**: Add/manage up to 20 custom prompts (tap to add, long-press to delete)
 6. **Export Data**: Export journal data (requires PebbleKit JS)
 7. **About**: View app version
-
-## Project Structure
-
-```
-pebble_gratitude_journal/
-├── src/
-│   ├── main.c                      # App lifecycle
-│   ├── data/
-│   │   ├── entry.h/c               # Entry data structures and logic
-│   │   └── storage.h/c             # Persistent storage with circular buffer
-│   ├── windows/
-│   │   ├── home_window.h/c         # Home screen with menu
-│   │   ├── entry_window.h/c        # Entry creation UI
-│   │   ├── calendar_window.h/c     # Calendar view
-│   │   └── settings_window.h/c     # Settings screen
-│   ├── logic/
-│   │   ├── prompts.h/c             # Daily prompt rotation
-│   │   └── stats.h/c               # Streak calculation
-│   └── utils/
-│       ├── date_utils.h/c          # Date manipulation utilities
-│       └── constants.h             # App-wide constants
-├── resources/
-│   └── images/                     # Mood icons and app icon
-├── package.json
-├── appinfo.json
-└── wscript
-```
 
 ## Technical Details
 
@@ -155,22 +126,8 @@ Uses preprocessor directives for platform-specific features:
 - `PBL_COLOR`: Color vs monochrome mood indicators
 - `PBL_ROUND`: Adjusted layouts for round displays
 
-## Known Limitations (v0.1.1)
-
-- No free-text input - canned responses only
-- No voice-to-text (deferred to v0.1.2)
-- No entry search/filtering (deferred to v0.1.2)
-- No cloud sync between devices
-- Export requires PebbleKit JS implementation to be fully functional
-
-## Future Features (v0.1.2+)
-
-- Voice-to-text input support (Rebble API)
-- Entry search and filtering by text/mood/date
-- T9 text input (optional, based on feedback)
-- Full PebbleKit JS export implementation
+## Future Features
 - Cloud sync support
-- Photo attachments (if memory allows)
 
 ## Development
 
