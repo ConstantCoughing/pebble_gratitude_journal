@@ -4,7 +4,7 @@
   "longName": "Gratitude Journal",
   "displayName": "Gratitude Journal",
   "companyName": "Your Name",
-  "versionLabel": "0.1.2",
+  "versionLabel": "0.2.0",
   "sdkVersion": "3",
   "projectType": "native",
   "targetPlatforms": ["basalt", "chalk", "diorite", "emery", "flint"],

@@ -19,8 +19,9 @@ static char s_streak_text[32];
 static char s_prompt_buffer[CUSTOM_PROMPT_MAX_LENGTH + 1];
 
 static void menu_select_callback(int index, void *context) {
-  // DEBUG: REMOVE - Force log without ifdef to ensure it shows
+  #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
   APP_LOG(APP_LOG_LEVEL_INFO, "!!! MENU CALLBACK FIRED !!! index=%d", index);
+  #endif  // DEBUG
 
   #ifdef DEBUG_LOGGING  // DEBUG: REMOVE THIS BLOCK
   APP_LOG(APP_LOG_LEVEL_INFO, "home_window: menu item %d selected", index);
