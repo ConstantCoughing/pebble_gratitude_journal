@@ -5,6 +5,7 @@
 #include "settings_window.h"
 #include "../logic/prompts.h"
 #include "../logic/stats.h"
+#include <string.h>
 
 // DEBUG: Temporary debug flag - REMOVE BEFORE RELEASE
 #define DEBUG_LOGGING 1
@@ -15,6 +16,7 @@ static SimpleMenuLayer *s_menu_layer;
 static SimpleMenuSection s_menu_section;
 static SimpleMenuItem s_menu_items[4];
 static char s_streak_text[32];
+static char s_prompt_buffer[CUSTOM_PROMPT_MAX_LENGTH + 1];
 
 static void menu_select_callback(int index, void *context) {
   // DEBUG: REMOVE - Force log without ifdef to ensure it shows
@@ -78,7 +80,9 @@ static void window_load(Window *window) {
 
   // Create prompt text layer
   s_prompt_layer = text_layer_create(GRect(padding, 5, bounds.size.w - (padding * 2), prompt_height));
-  text_layer_set_text(s_prompt_layer, prompts_get_daily());
+  strncpy(s_prompt_buffer, prompts_get_daily(), sizeof(s_prompt_buffer) - 1);
+  s_prompt_buffer[sizeof(s_prompt_buffer) - 1] = '\0';
+  text_layer_set_text(s_prompt_layer, s_prompt_buffer);
   text_layer_set_font(s_prompt_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_text_alignment(s_prompt_layer, GTextAlignmentCenter);
   text_layer_set_overflow_mode(s_prompt_layer, GTextOverflowModeTrailingEllipsis);
@@ -168,6 +172,13 @@ static void window_load(Window *window) {
   #endif  // DEBUG
 }
 
+static void window_appear(Window *window) {
+  // Refresh prompt in case settings changed (mode toggle, custom prompts added)
+  strncpy(s_prompt_buffer, prompts_get_daily(), sizeof(s_prompt_buffer) - 1);
+  s_prompt_buffer[sizeof(s_prompt_buffer) - 1] = '\0';
+  text_layer_set_text(s_prompt_layer, s_prompt_buffer);
+}
+
 static void window_unload(Window *window) {
   #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
   APP_LOG(APP_LOG_LEVEL_INFO, "home_window: window_unload called");
@@ -190,6 +201,7 @@ void home_window_push(void) {
     s_window = window_create();
     window_set_window_handlers(s_window, (WindowHandlers) {
       .load = window_load,
+      .appear = window_appear,
       .unload = window_unload
     });
   }
