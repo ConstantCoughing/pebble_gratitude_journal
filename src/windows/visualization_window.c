@@ -3,12 +3,17 @@
 #include "../utils/constants.h"
 #include "../utils/date_utils.h"
 #include <string.h>
+#include <stdlib.h>
 
 typedef enum {
   VIZ_BAR_CHART,
   VIZ_MOOD_TREND,
   VIZ_MOOD_DISTRIBUTION
 } VisualizationType;
+
+// Forward declarations
+static void viz_click_config_provider(void *context);
+static void menu_select(MenuLayer *menu_layer, MenuIndex *cell_index, void *context);
 
 static Window *s_window;
 static Layer *s_viz_layer;
@@ -26,8 +31,13 @@ static const char* MOOD_LABELS[9] = {
 static void draw_bar_chart(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
 
-  // Load all entries
-  Entry entries[MAX_ENTRIES];
+  // Load all entries (use malloc to avoid stack overflow)
+  Entry *entries = malloc(sizeof(Entry) * MAX_ENTRIES);
+  if (!entries) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "draw_bar_chart: malloc failed");
+    return;
+  }
+
   uint16_t count = storage_get_all_entries(entries, MAX_ENTRIES);
 
   // Count entries per week for last 4 weeks
@@ -41,6 +51,8 @@ static void draw_bar_chart(Layer *layer, GContext *ctx) {
     else if (days_ago < 21) week_counts[2]++;
     else if (days_ago < 28) week_counts[3]++;
   }
+
+  free(entries);
 
   // Draw title
   graphics_context_set_text_color(ctx, GColorBlack);
@@ -96,8 +108,13 @@ static void draw_bar_chart(Layer *layer, GContext *ctx) {
 static void draw_mood_trend(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
 
-  // Load all entries
-  Entry entries[MAX_ENTRIES];
+  // Load all entries (use malloc to avoid stack overflow)
+  Entry *entries = malloc(sizeof(Entry) * MAX_ENTRIES);
+  if (!entries) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "draw_mood_trend: malloc failed");
+    return;
+  }
+
   uint16_t count = storage_get_all_entries(entries, MAX_ENTRIES);
 
   // Calculate average mood per week for last 4 weeks
@@ -118,6 +135,8 @@ static void draw_mood_trend(Layer *layer, GContext *ctx) {
       week_mood_count[week]++;
     }
   }
+
+  free(entries);
 
   // Draw title
   graphics_context_set_text_color(ctx, GColorBlack);
@@ -284,9 +303,11 @@ static void menu_select(MenuLayer *menu_layer, MenuIndex *cell_index, void *cont
   layer_set_hidden(menu_layer_get_layer(s_menu_layer), true);
   layer_set_hidden(s_viz_layer, false);
   layer_mark_dirty(s_viz_layer);
+  // Click config stays the same - viz_click_config_provider handles both views
 }
 
-static void back_click_handler(ClickRecognizerRef recognizer, void *context) {
+// Unified button handlers that work for both menu and chart views
+static void viz_back_handler(ClickRecognizerRef recognizer, void *context) {
   if (s_showing_menu) {
     window_stack_pop(true);
   } else {
@@ -297,17 +318,50 @@ static void back_click_handler(ClickRecognizerRef recognizer, void *context) {
   }
 }
 
-static void click_config_provider(void *context) {
-  window_single_click_subscribe(BUTTON_ID_BACK, back_click_handler);
+static void viz_up_handler(ClickRecognizerRef recognizer, void *context) {
+  if (s_showing_menu) {
+    menu_layer_set_selected_next(s_menu_layer, true, MenuRowAlignCenter, true);
+  }
+}
+
+static void viz_down_handler(ClickRecognizerRef recognizer, void *context) {
+  if (s_showing_menu) {
+    menu_layer_set_selected_next(s_menu_layer, false, MenuRowAlignCenter, true);
+  }
+}
+
+static void viz_select_handler(ClickRecognizerRef recognizer, void *context) {
+  if (s_showing_menu) {
+    MenuIndex idx = menu_layer_get_selected_index(s_menu_layer);
+    menu_select(s_menu_layer, &idx, NULL);
+  }
+}
+
+static void viz_click_config_provider(void *context) {
+  window_single_click_subscribe(BUTTON_ID_BACK, viz_back_handler);
+  window_single_click_subscribe(BUTTON_ID_UP, viz_up_handler);
+  window_single_click_subscribe(BUTTON_ID_DOWN, viz_down_handler);
+  window_single_click_subscribe(BUTTON_ID_SELECT, viz_select_handler);
 }
 
 static void window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
 
-  window_set_click_config_provider(window, click_config_provider);
+  // Set unified click config provider (handles both menu and chart views)
+  window_set_click_config_provider(window, viz_click_config_provider);
 
-  // Create menu layer
+  // Destroy existing layers if they exist (in case of window reuse)
+  if (s_menu_layer) {
+    menu_layer_destroy(s_menu_layer);
+    s_menu_layer = NULL;
+  }
+  if (s_viz_layer) {
+    layer_destroy(s_viz_layer);
+    s_viz_layer = NULL;
+  }
+
+  // Create menu layer (no menu_layer_set_click_config_onto_window - we handle buttons manually)
   s_menu_layer = menu_layer_create(bounds);
   menu_layer_set_callbacks(s_menu_layer, NULL, (MenuLayerCallbacks) {
     .get_num_rows = menu_get_num_rows,

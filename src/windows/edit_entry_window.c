@@ -46,7 +46,7 @@ static void canned_menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuInd
   } else {
     bool is_selected = (s_selected_canned_flags & (1 << cell_index->row)) != 0;
     menu_cell_basic_draw(ctx, cell_layer, CANNED_LABELS[cell_index->row],
-                        is_selected ? "✓" : NULL, NULL);
+                        is_selected ? "\u2022" : NULL, NULL);
   }
 }
 
@@ -104,20 +104,25 @@ static void show_mood_selection(void) {
   s_current_stage = STAGE_MOOD_SELECTION;
 
   // Recreate menu layer for mood selection
-  menu_layer_destroy(s_menu_layer);
+  if (s_menu_layer) {
+    layer_remove_from_parent(menu_layer_get_layer(s_menu_layer));
+    menu_layer_destroy(s_menu_layer);
+    s_menu_layer = NULL;
+  }
 
   Layer *window_layer = window_get_root_layer(s_window);
   GRect bounds = layer_get_bounds(window_layer);
 
   s_menu_layer = menu_layer_create(bounds);
-  menu_layer_set_click_config_onto_window(s_menu_layer, s_window);
   menu_layer_set_callbacks(s_menu_layer, NULL, (MenuLayerCallbacks) {
     .get_num_rows = mood_menu_get_num_rows,
     .draw_row = mood_menu_draw_row,
     .select_click = mood_menu_select
   });
+  menu_layer_set_click_config_onto_window(s_menu_layer, s_window);
 
   layer_add_child(window_layer, menu_layer_get_layer(s_menu_layer));
+  layer_mark_dirty(menu_layer_get_layer(s_menu_layer));
 }
 
 static void save_and_close(void) {
@@ -161,18 +166,22 @@ static void window_load(Window *window) {
 
   // Create menu layer for canned responses
   s_menu_layer = menu_layer_create(bounds);
-  menu_layer_set_click_config_onto_window(s_menu_layer, window);
   menu_layer_set_callbacks(s_menu_layer, NULL, (MenuLayerCallbacks) {
     .get_num_rows = canned_menu_get_num_rows,
     .draw_row = canned_menu_draw_row,
     .select_click = canned_menu_select
   });
+  menu_layer_set_click_config_onto_window(s_menu_layer, window);
 
   layer_add_child(window_layer, menu_layer_get_layer(s_menu_layer));
+  layer_mark_dirty(menu_layer_get_layer(s_menu_layer));
 }
 
 static void window_unload(Window *window) {
-  menu_layer_destroy(s_menu_layer);
+  if (s_menu_layer) {
+    menu_layer_destroy(s_menu_layer);
+    s_menu_layer = NULL;
+  }
 }
 
 void edit_entry_window_push(uint16_t entry_index) {

@@ -3,6 +3,7 @@
 #include "../utils/constants.h"
 #include <string.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 bool str_contains_case_insensitive(const char *haystack, const char *needle) {
   if (!haystack || !needle || needle[0] == '\0') {
@@ -74,8 +75,13 @@ uint16_t search_entries(const SearchCriteria *criteria, Entry *results, uint16_t
     return 0;
   }
 
-  // Load all entries
-  Entry all_entries[MAX_ENTRIES];
+  // Load all entries (use malloc to avoid stack overflow)
+  Entry *all_entries = malloc(sizeof(Entry) * MAX_ENTRIES);
+  if (!all_entries) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "search_entries: malloc failed");
+    return 0;
+  }
+
   uint16_t total_count = storage_get_all_entries(all_entries, MAX_ENTRIES);
 
   APP_LOG(APP_LOG_LEVEL_DEBUG, "search_entries: Searching %d entries", total_count);
@@ -88,6 +94,8 @@ uint16_t search_entries(const SearchCriteria *criteria, Entry *results, uint16_t
       found++;
     }
   }
+
+  free(all_entries);
 
   APP_LOG(APP_LOG_LEVEL_INFO, "search_entries: Found %d matches", found);
   return found;

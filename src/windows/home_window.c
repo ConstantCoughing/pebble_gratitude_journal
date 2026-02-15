@@ -79,9 +79,9 @@ static void window_load(Window *window) {
   // Create prompt text layer
   s_prompt_layer = text_layer_create(GRect(padding, 5, bounds.size.w - (padding * 2), prompt_height));
   text_layer_set_text(s_prompt_layer, prompts_get_daily());
-  text_layer_set_font(s_prompt_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  text_layer_set_font(s_prompt_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_text_alignment(s_prompt_layer, GTextAlignmentCenter);
-  text_layer_set_overflow_mode(s_prompt_layer, GTextOverflowModeWordWrap);
+  text_layer_set_overflow_mode(s_prompt_layer, GTextOverflowModeTrailingEllipsis);
   layer_add_child(window_layer, text_layer_get_layer(s_prompt_layer));
 
   #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
@@ -143,7 +143,7 @@ static void window_load(Window *window) {
 
   // Create streak status bar BEFORE adding menu (so menu is on top)
   uint16_t streak = stats_calculate_streak();
-  snprintf(s_streak_text, sizeof(s_streak_text), "🔥 %d Day Streak", streak);
+  snprintf(s_streak_text, sizeof(s_streak_text), "\u2022 %d Day Streak", streak);
 
   #ifdef DEBUG_LOGGING  // DEBUG: REMOVE
   APP_LOG(APP_LOG_LEVEL_INFO, "home_window: streak = %d days", streak);

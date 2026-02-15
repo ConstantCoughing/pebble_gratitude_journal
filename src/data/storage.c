@@ -118,12 +118,14 @@ uint16_t storage_get_all_entries(Entry *entries, uint16_t max_entries) {
 
   // Sort by date (newest first) using bubble sort
   // Simple sort is fine for 180 entries max
-  for (uint16_t i = 0; i < loaded - 1; i++) {
-    for (uint16_t j = 0; j < loaded - i - 1; j++) {
-      if (entries[j].date < entries[j + 1].date) {
-        Entry temp = entries[j];
-        entries[j] = entries[j + 1];
-        entries[j + 1] = temp;
+  if (loaded > 1) {
+    for (uint16_t i = 0; i < loaded - 1; i++) {
+      for (uint16_t j = 0; j < loaded - i - 1; j++) {
+        if (entries[j].date < entries[j + 1].date) {
+          Entry temp = entries[j];
+          entries[j] = entries[j + 1];
+          entries[j + 1] = temp;
+        }
       }
     }
   }
@@ -275,42 +277,34 @@ bool storage_delete_entry(uint16_t index) {
     return false;
   }
 
-  // Load all entries
-  Entry *entries = malloc(sizeof(Entry) * MAX_ENTRIES);
-  if (!entries) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_entry: malloc failed");
-    return false;
-  }
+  APP_LOG(APP_LOG_LEVEL_INFO, "storage_delete_entry: deleting entry %d of %d", index, count);
 
-  uint16_t loaded = storage_get_all_entries(entries, MAX_ENTRIES);
-  if (loaded == 0 || index >= loaded) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_entry: failed to load entries or index invalid");
-    free(entries);
-    return false;
-  }
+  // Shift entries after deleted index down by one using raw persist keys
+  for (uint16_t i = index; i < count - 1; i++) {
+    Entry entry;
+    uint32_t next_key = get_entry_key(i + 1);
+    uint32_t cur_key = get_entry_key(i);
 
-  APP_LOG(APP_LOG_LEVEL_INFO, "storage_delete_entry: deleting entry %d of %d", index, loaded);
-
-  // Shift entries after deleted index down by one
-  for (uint16_t i = index; i < loaded - 1; i++) {
-    uint32_t key = get_entry_key(i);
-    int result = persist_write_data(key, &entries[i + 1], sizeof(Entry));
-    if (result != sizeof(Entry)) {
-      APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_entry: failed to write entry %d during shift", i);
+    if (persist_exists(next_key)) {
+      int read_result = persist_read_data(next_key, &entry, sizeof(Entry));
+      if (read_result == sizeof(Entry)) {
+        int write_result = persist_write_data(cur_key, &entry, sizeof(Entry));
+        if (write_result != sizeof(Entry)) {
+          APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_entry: failed to write entry %d during shift", i);
+        }
+      } else {
+        APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_entry: failed to read entry %d during shift", i + 1);
+      }
     }
   }
 
   // Delete last entry
-  uint32_t last_key = get_entry_key(loaded - 1);
+  uint32_t last_key = get_entry_key(count - 1);
   persist_delete(last_key);
 
   // Update count
-  int count_result = persist_write_int(STORAGE_KEY_ENTRY_COUNT, loaded - 1);
-  if (count_result != sizeof(int)) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_entry: failed to update count");
-  }
+  persist_write_int(STORAGE_KEY_ENTRY_COUNT, count - 1);
 
-  free(entries);
   APP_LOG(APP_LOG_LEVEL_INFO, "storage_delete_entry: successfully deleted entry");
   return true;
 }

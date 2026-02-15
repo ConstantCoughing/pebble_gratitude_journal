@@ -133,19 +133,21 @@ static void show_input_method_menu(void) {
   s_current_stage = STAGE_INPUT_METHOD;
 
   if (s_menu_layer) {
+    layer_remove_from_parent(menu_layer_get_layer(s_menu_layer));
     menu_layer_destroy(s_menu_layer);
+    s_menu_layer = NULL;
   }
 
   Layer *window_layer = window_get_root_layer(s_window);
   GRect bounds = layer_get_bounds(window_layer);
 
   s_menu_layer = menu_layer_create(bounds);
-  menu_layer_set_click_config_onto_window(s_menu_layer, s_window);
   menu_layer_set_callbacks(s_menu_layer, NULL, (MenuLayerCallbacks) {
     .get_num_rows = input_method_get_num_rows,
     .draw_row = input_method_draw_row,
     .select_click = input_method_select
   });
+  menu_layer_set_click_config_onto_window(s_menu_layer, s_window);
 
   layer_add_child(window_layer, menu_layer_get_layer(s_menu_layer));
 }
@@ -173,22 +175,28 @@ static void show_canned_response_menu(void) {
   s_current_stage = STAGE_CANNED_RESPONSE;
   s_voice_text[0] = '\0';  // Clear voice text
 
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "show_canned_response_menu: creating menu");
+
   if (s_menu_layer) {
+    layer_remove_from_parent(menu_layer_get_layer(s_menu_layer));
     menu_layer_destroy(s_menu_layer);
+    s_menu_layer = NULL;
   }
 
   Layer *window_layer = window_get_root_layer(s_window);
   GRect bounds = layer_get_bounds(window_layer);
 
   s_menu_layer = menu_layer_create(bounds);
-  menu_layer_set_click_config_onto_window(s_menu_layer, s_window);
   menu_layer_set_callbacks(s_menu_layer, NULL, (MenuLayerCallbacks) {
     .get_num_rows = canned_menu_get_num_rows,
     .draw_row = canned_menu_draw_row,
     .select_click = canned_menu_select
   });
+  menu_layer_set_click_config_onto_window(s_menu_layer, s_window);
 
   layer_add_child(window_layer, menu_layer_get_layer(s_menu_layer));
+  layer_mark_dirty(menu_layer_get_layer(s_menu_layer));
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "show_canned_response_menu: menu created and added");
 }
 
 // Canned response menu callbacks
@@ -206,15 +214,17 @@ static void canned_menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuInd
   } else {
     bool is_selected = (s_selected_canned_flags & (1 << cell_index->row)) != 0;
     menu_cell_basic_draw(ctx, cell_layer, CANNED_LABELS[cell_index->row],
-                        is_selected ? "✓" : NULL, NULL);
+                        is_selected ? "\u2022" : NULL, NULL);
   }
 }
 
 static void canned_menu_select(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
   (void)menu_layer;
   (void)context;
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "canned_menu_select: row=%d, NUM_CANNED_RESPONSES=%d", cell_index->row, NUM_CANNED_RESPONSES);
   if (cell_index->row == NUM_CANNED_RESPONSES) {
     // Done button - proceed to mood selection
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "canned_menu_select: Done button pressed, flags=0x%04x", s_selected_canned_flags);
     if (s_selected_canned_flags == 0) {
       // Nothing selected - default to "grateful"
       s_selected_canned_flags = CANNED_FAMILY;
@@ -224,6 +234,7 @@ static void canned_menu_select(MenuLayer *menu_layer, MenuIndex *cell_index, voi
     // Toggle selection
     uint16_t flag = (1 << cell_index->row);
     s_selected_canned_flags ^= flag;
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "canned_menu_select: Toggled flag %d, new flags=0x%04x", cell_index->row, s_selected_canned_flags);
     menu_layer_reload_data(s_menu_layer);
   }
 }
@@ -250,21 +261,29 @@ static void mood_menu_select(MenuLayer *menu_layer, MenuIndex *cell_index, void 
 static void show_mood_selection(void) {
   s_current_stage = STAGE_MOOD_SELECTION;
 
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "show_mood_selection: creating menu");
+
   // Recreate menu layer for mood selection
-  menu_layer_destroy(s_menu_layer);
+  if (s_menu_layer) {
+    layer_remove_from_parent(menu_layer_get_layer(s_menu_layer));
+    menu_layer_destroy(s_menu_layer);
+    s_menu_layer = NULL;
+  }
 
   Layer *window_layer = window_get_root_layer(s_window);
   GRect bounds = layer_get_bounds(window_layer);
 
   s_menu_layer = menu_layer_create(bounds);
-  menu_layer_set_click_config_onto_window(s_menu_layer, s_window);
   menu_layer_set_callbacks(s_menu_layer, NULL, (MenuLayerCallbacks) {
     .get_num_rows = mood_menu_get_num_rows,
     .draw_row = mood_menu_draw_row,
     .select_click = mood_menu_select
   });
+  menu_layer_set_click_config_onto_window(s_menu_layer, s_window);
 
   layer_add_child(window_layer, menu_layer_get_layer(s_menu_layer));
+  layer_mark_dirty(menu_layer_get_layer(s_menu_layer));
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "show_mood_selection: menu created");
 }
 
 // Storage warning dialog
@@ -325,6 +344,8 @@ static void save_and_close(void) {
     entry_init(&entry, date_get_today(), s_selected_mood, s_selected_canned_flags);
   }
 
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "save_and_close: saving entry with date=%ld, mood=%d", (long)entry.date, entry.mood);
+
   // Check storage capacity before saving
   bool was_near_capacity = storage_is_near_capacity();
 
@@ -356,7 +377,10 @@ static void window_load(Window *window) {
 }
 
 static void window_unload(Window *window) {
-  menu_layer_destroy(s_menu_layer);
+  if (s_menu_layer) {
+    menu_layer_destroy(s_menu_layer);
+    s_menu_layer = NULL;
+  }
 }
 
 void entry_window_push(void) {

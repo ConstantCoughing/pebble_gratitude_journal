@@ -17,11 +17,11 @@ static const uint8_t DAYS_IN_MONTH[] = {
 };
 
 time_t date_normalize_to_midnight(time_t timestamp) {
-  struct tm *time_info = localtime(&timestamp);
-  time_info->tm_hour = 0;
-  time_info->tm_min = 0;
-  time_info->tm_sec = 0;
-  return mktime(time_info);
+  struct tm time_info_copy = *localtime(&timestamp);
+  time_info_copy.tm_hour = 0;
+  time_info_copy.tm_min = 0;
+  time_info_copy.tm_sec = 0;
+  return mktime(&time_info_copy);
 }
 
 time_t date_get_today(void) {
@@ -43,22 +43,22 @@ time_t date_add_days(time_t date, int32_t days) {
 }
 
 time_t date_get_first_of_month(time_t date) {
-  struct tm *time_info = localtime(&date);
-  time_info->tm_mday = 1;
-  time_info->tm_hour = 0;
-  time_info->tm_min = 0;
-  time_info->tm_sec = 0;
-  return mktime(time_info);
+  struct tm time_info_copy = *localtime(&date);
+  time_info_copy.tm_mday = 1;
+  time_info_copy.tm_hour = 0;
+  time_info_copy.tm_min = 0;
+  time_info_copy.tm_sec = 0;
+  return mktime(&time_info_copy);
 }
 
 time_t date_get_last_of_month(time_t date) {
-  struct tm *time_info = localtime(&date);
+  struct tm time_info_copy = *localtime(&date);
   uint8_t days = date_get_days_in_month(date);
-  time_info->tm_mday = days;
-  time_info->tm_hour = 0;
-  time_info->tm_min = 0;
-  time_info->tm_sec = 0;
-  return mktime(time_info);
+  time_info_copy.tm_mday = days;
+  time_info_copy.tm_hour = 0;
+  time_info_copy.tm_min = 0;
+  time_info_copy.tm_sec = 0;
+  return mktime(&time_info_copy);
 }
 
 uint8_t date_get_days_in_month(time_t date) {
@@ -82,47 +82,47 @@ bool date_is_leap_year(uint16_t year) {
 }
 
 time_t date_next_month(time_t date) {
-  struct tm *time_info = localtime(&date);
+  struct tm time_info_copy = *localtime(&date);
 
-  if (time_info->tm_mon == 11) {
-    time_info->tm_mon = 0;
-    time_info->tm_year++;
+  if (time_info_copy.tm_mon == 11) {
+    time_info_copy.tm_mon = 0;
+    time_info_copy.tm_year++;
   } else {
-    time_info->tm_mon++;
+    time_info_copy.tm_mon++;
   }
 
   // Adjust day if it exceeds days in new month
-  uint8_t max_days = DAYS_IN_MONTH[time_info->tm_mon];
-  if (time_info->tm_mon == 1 && date_is_leap_year(time_info->tm_year + 1900)) {
+  uint8_t max_days = DAYS_IN_MONTH[time_info_copy.tm_mon];
+  if (time_info_copy.tm_mon == 1 && date_is_leap_year(time_info_copy.tm_year + 1900)) {
     max_days = 29;
   }
-  if (time_info->tm_mday > max_days) {
-    time_info->tm_mday = max_days;
+  if (time_info_copy.tm_mday > max_days) {
+    time_info_copy.tm_mday = max_days;
   }
 
-  return mktime(time_info);
+  return mktime(&time_info_copy);
 }
 
 time_t date_prev_month(time_t date) {
-  struct tm *time_info = localtime(&date);
+  struct tm time_info_copy = *localtime(&date);
 
-  if (time_info->tm_mon == 0) {
-    time_info->tm_mon = 11;
-    time_info->tm_year--;
+  if (time_info_copy.tm_mon == 0) {
+    time_info_copy.tm_mon = 11;
+    time_info_copy.tm_year--;
   } else {
-    time_info->tm_mon--;
+    time_info_copy.tm_mon--;
   }
 
   // Adjust day if it exceeds days in new month
-  uint8_t max_days = DAYS_IN_MONTH[time_info->tm_mon];
-  if (time_info->tm_mon == 1 && date_is_leap_year(time_info->tm_year + 1900)) {
+  uint8_t max_days = DAYS_IN_MONTH[time_info_copy.tm_mon];
+  if (time_info_copy.tm_mon == 1 && date_is_leap_year(time_info_copy.tm_year + 1900)) {
     max_days = 29;
   }
-  if (time_info->tm_mday > max_days) {
-    time_info->tm_mday = max_days;
+  if (time_info_copy.tm_mday > max_days) {
+    time_info_copy.tm_mday = max_days;
   }
 
-  return mktime(time_info);
+  return mktime(&time_info_copy);
 }
 
 const char* date_get_month_name(uint8_t month) {

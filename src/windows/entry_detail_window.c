@@ -5,16 +5,28 @@
 #include "../utils/date_utils.h"
 #include "../utils/constants.h"
 #include <string.h>
+#include <stdlib.h>
+
+#define MAX_DAY_ENTRIES 10
 
 static Window *s_window;
+static MenuLayer *s_menu_layer;
+static TextLayer *s_empty_layer;
+static time_t s_current_date;
+
+// Entries for the selected day (static so menu draw callbacks can access them)
+static Entry s_day_entries[MAX_DAY_ENTRIES];
+static uint16_t s_day_entry_count;
+
+// Global entry indices for each day entry (for edit/delete)
+static uint16_t s_global_indices[MAX_DAY_ENTRIES];
+
+// Currently selected entry index (global) for action menu
+static uint16_t s_selected_global_index;
+
+// Action menu window
 static Window *s_action_menu_window;
 static SimpleMenuLayer *s_action_menu_layer;
-static ScrollLayer *s_scroll_layer;
-static TextLayer *s_date_layer;
-static TextLayer *s_mood_layer;
-static TextLayer *s_text_layer;
-static time_t s_current_date;
-static uint16_t s_current_entry_index;
 
 // Mood labels
 static const char* MOOD_LABELS[9] = {
@@ -29,14 +41,32 @@ static const char* MOOD_LABELS[9] = {
   "Grateful"
 };
 
+// Forward declarations
+static void load_entries_for_date(void);
+static void cleanup_action_menu(void);
+
+// Clean up the action menu window and its layers
+static void cleanup_action_menu(void) {
+  if (s_action_menu_layer) {
+    simple_menu_layer_destroy(s_action_menu_layer);
+    s_action_menu_layer = NULL;
+  }
+  if (s_action_menu_window) {
+    window_destroy(s_action_menu_window);
+    s_action_menu_window = NULL;
+  }
+}
+
 // Action menu callbacks
 static void edit_entry_callback(int index, void *context) {
-  edit_entry_window_push(s_current_entry_index);
+  // Pop and clean up action menu before pushing edit window
+  window_stack_pop(true);
+  cleanup_action_menu();
+  edit_entry_window_push(s_selected_global_index);
 }
 
 static void delete_entry_callback(int index, void *context) {
-  // Confirm deletion
-  if (storage_delete_entry(s_current_entry_index)) {
+  if (storage_delete_entry(s_selected_global_index)) {
     APP_LOG(APP_LOG_LEVEL_INFO, "entry_detail: entry deleted successfully");
 
     // Recalculate streak after deletion
@@ -45,9 +75,18 @@ static void delete_entry_callback(int index, void *context) {
     stats.current_streak = stats_calculate_streak();
     storage_save_stats(&stats);
 
-    // Pop both action menu and detail window
-    window_stack_pop(true);  // Action menu
-    window_stack_pop(true);  // Detail window
+    // Pop and clean up action menu
+    window_stack_pop(true);
+    cleanup_action_menu();
+
+    // Reload entries for this day and refresh menu
+    load_entries_for_date();
+    if (s_day_entry_count == 0) {
+      // No more entries - pop detail window too
+      window_stack_pop(true);
+    } else {
+      menu_layer_reload_data(s_menu_layer);
+    }
   } else {
     APP_LOG(APP_LOG_LEVEL_ERROR, "entry_detail: failed to delete entry");
   }
@@ -83,110 +122,100 @@ static void show_action_menu(void) {
   window_stack_push(s_action_menu_window, true);
 }
 
-static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
+// Load entries for the current date and resolve raw storage indices
+static void load_entries_for_date(void) {
+  time_t normalized_date = date_normalize_to_midnight(s_current_date);
+  uint16_t count = storage_get_entry_count();
+  s_day_entry_count = 0;
+
+  for (uint16_t i = 0; i < count && s_day_entry_count < MAX_DAY_ENTRIES; i++) {
+    Entry entry;
+    if (storage_get_entry_by_index(i, &entry)) {
+      if (entry.date == normalized_date) {
+        s_day_entries[s_day_entry_count] = entry;
+        s_global_indices[s_day_entry_count] = i;  // Raw storage index
+        s_day_entry_count++;
+      }
+    }
+  }
+}
+
+// Menu layer callbacks
+static uint16_t menu_get_num_rows(MenuLayer *menu_layer, uint16_t section_index, void *context) {
+  return s_day_entry_count > 0 ? s_day_entry_count : 1;
+}
+
+static void menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index, void *context) {
+  if (s_day_entry_count == 0) {
+    menu_cell_basic_draw(ctx, cell_layer, "No entries", "for this date", NULL);
+    return;
+  }
+
+  uint16_t row = cell_index->row;
+  if (row >= s_day_entry_count) return;
+
+  Entry *entry = &s_day_entries[row];
+  const char *mood = MOOD_LABELS[entry->mood];
+
+  // Show entry number, mood as title; text preview as subtitle
+  static char title_buf[32];
+  snprintf(title_buf, sizeof(title_buf), "#%d - %s", row + 1, mood);
+
+  // Truncate text for subtitle preview
+  static char subtitle_buf[32];
+  strncpy(subtitle_buf, entry->text, sizeof(subtitle_buf) - 1);
+  subtitle_buf[sizeof(subtitle_buf) - 1] = '\0';
+
+  menu_cell_basic_draw(ctx, cell_layer, title_buf, subtitle_buf, NULL);
+}
+
+static void menu_select(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
+  if (s_day_entry_count == 0) {
+    window_stack_pop(true);
+    return;
+  }
+
+  uint16_t row = cell_index->row;
+  if (row >= s_day_entry_count) return;
+
+  s_selected_global_index = s_global_indices[row];
   show_action_menu();
 }
 
-static void click_config_provider(void *context) {
-  window_single_click_subscribe(BUTTON_ID_SELECT, select_click_handler);
+// Refresh data when window appears (handles return from edit)
+static void window_appear(Window *window) {
+  load_entries_for_date();
+  if (s_menu_layer) {
+    menu_layer_reload_data(s_menu_layer);
+  }
 }
 
 static void window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
 
-  // Set click config provider
-  window_set_click_config_provider(window, click_config_provider);
+  // Load entries for this date
+  load_entries_for_date();
 
-  // Create scroll layer
-  s_scroll_layer = scroll_layer_create(bounds);
-  layer_add_child(window_layer, scroll_layer_get_layer(s_scroll_layer));
-
-  // Load entries for the date
-  Entry entries[10];  // Support multiple entries per day
-  uint16_t entry_count = storage_get_entries_for_date(s_current_date, entries, 10);
-
-  if (entry_count == 0) {
-    // No entries for this day
-    s_text_layer = text_layer_create(GRect(10, 10, bounds.size.w - 20, 2000));
-    text_layer_set_text(s_text_layer, "No entries for this date.");
-    text_layer_set_font(s_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
-    scroll_layer_add_child(s_scroll_layer, text_layer_get_layer(s_text_layer));
-
-    GSize content_size = text_layer_get_content_size(s_text_layer);
-    text_layer_set_size(s_text_layer, content_size);
-    scroll_layer_set_content_size(s_scroll_layer, GSize(bounds.size.w, content_size.h + 20));
-    return;
-  }
-
-  // Display first entry (if multiple, show the latest)
-  Entry entry = entries[0];
-
-  // Find the entry index for editing/deleting
-  // Need to search all entries to find index
-  Entry all_entries[MAX_ENTRIES];
-  uint16_t all_count = storage_get_all_entries(all_entries, MAX_ENTRIES);
-  s_current_entry_index = 0;
-  for (uint16_t i = 0; i < all_count; i++) {
-    if (all_entries[i].date == entry.date &&
-        all_entries[i].mood == entry.mood &&
-        strcmp(all_entries[i].text, entry.text) == 0) {
-      s_current_entry_index = i;
-      break;
-    }
-  }
-
-  // Format date
-  struct tm *time_info = localtime(&entry.date);
-  static char date_text[64];
-  strftime(date_text, sizeof(date_text), "%B %d, %Y", time_info);
-
-  // Create date layer
-  s_date_layer = text_layer_create(GRect(10, 10, bounds.size.w - 20, 30));
-  text_layer_set_text(s_date_layer, date_text);
-  text_layer_set_font(s_date_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
-  text_layer_set_text_alignment(s_date_layer, GTextAlignmentCenter);
-  scroll_layer_add_child(s_scroll_layer, text_layer_get_layer(s_date_layer));
-
-  // Create mood layer
-  static char mood_text[32];
-  snprintf(mood_text, sizeof(mood_text), "Mood: %s", MOOD_LABELS[entry.mood]);
-  s_mood_layer = text_layer_create(GRect(10, 45, bounds.size.w - 20, 25));
-  text_layer_set_text(s_mood_layer, mood_text);
-  text_layer_set_font(s_mood_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
-  text_layer_set_text_alignment(s_mood_layer, GTextAlignmentCenter);
-  scroll_layer_add_child(s_scroll_layer, text_layer_get_layer(s_mood_layer));
-
-  // Create text layer for entry content
-  s_text_layer = text_layer_create(GRect(10, 80, bounds.size.w - 20, 2000));
-  text_layer_set_text(s_text_layer, entry.text);
-  text_layer_set_font(s_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));
-  scroll_layer_add_child(s_scroll_layer, text_layer_get_layer(s_text_layer));
-
-  // Set proper size for text layer
-  GSize content_size = text_layer_get_content_size(s_text_layer);
-  text_layer_set_size(s_text_layer, content_size);
-
-  // Set scroll layer content size
-  scroll_layer_set_content_size(s_scroll_layer, GSize(bounds.size.w, content_size.h + 100));
+  // Create menu layer to list all entries
+  s_menu_layer = menu_layer_create(bounds);
+  menu_layer_set_click_config_onto_window(s_menu_layer, window);
+  menu_layer_set_callbacks(s_menu_layer, NULL, (MenuLayerCallbacks) {
+    .get_num_rows = menu_get_num_rows,
+    .draw_row = menu_draw_row,
+    .select_click = menu_select
+  });
+  layer_add_child(window_layer, menu_layer_get_layer(s_menu_layer));
 }
 
 static void window_unload(Window *window) {
-  if (s_date_layer) {
-    text_layer_destroy(s_date_layer);
-    s_date_layer = NULL;
+  if (s_menu_layer) {
+    menu_layer_destroy(s_menu_layer);
+    s_menu_layer = NULL;
   }
-  if (s_mood_layer) {
-    text_layer_destroy(s_mood_layer);
-    s_mood_layer = NULL;
-  }
-  if (s_text_layer) {
-    text_layer_destroy(s_text_layer);
-    s_text_layer = NULL;
-  }
-  if (s_scroll_layer) {
-    scroll_layer_destroy(s_scroll_layer);
-    s_scroll_layer = NULL;
+  if (s_empty_layer) {
+    text_layer_destroy(s_empty_layer);
+    s_empty_layer = NULL;
   }
 }
 
@@ -197,7 +226,8 @@ void entry_detail_window_push(time_t date) {
     s_window = window_create();
     window_set_window_handlers(s_window, (WindowHandlers) {
       .load = window_load,
-      .unload = window_unload
+      .unload = window_unload,
+      .appear = window_appear
     });
   }
   window_stack_push(s_window, true);
