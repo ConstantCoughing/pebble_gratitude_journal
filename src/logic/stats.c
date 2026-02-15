@@ -3,44 +3,68 @@
 #include "../utils/date_utils.h"
 #include <string.h>
 
-uint16_t stats_calculate_streak(void) {
-  Entry *entries = malloc(sizeof(Entry) * MAX_ENTRIES);
-  if (!entries) {
-    return 0;
-  }
+// Context for collecting unique dates
+#define MAX_STREAK_DATES 62
+typedef struct {
+  time_t dates[MAX_STREAK_DATES];
+  uint16_t count;
+} StreakDateCtx;
 
-  uint16_t count = storage_get_all_entries(entries, MAX_ENTRIES);
-  if (count == 0) {
-    free(entries);
-    return 0;
-  }
+static bool collect_dates_callback(const Entry *entry, uint16_t index, void *context) {
+  StreakDateCtx *ctx = (StreakDateCtx *)context;
+  time_t normalized = date_normalize_to_midnight(entry->date);
 
-  // Entries are sorted newest first
-  time_t today = date_get_today();
-  uint16_t streak = 0;
-
-  // Check if there's an entry for today or yesterday
-  bool found_recent = false;
-  for (uint16_t i = 0; i < count; i++) {
-    if (date_is_same_day(entries[i].date, today) ||
-        date_is_same_day(entries[i].date, date_add_days(today, -1))) {
-      found_recent = true;
-      break;
+  // Check if date already collected
+  for (uint16_t i = 0; i < ctx->count; i++) {
+    if (ctx->dates[i] == normalized) {
+      return true;  // already have this date, continue
     }
   }
 
-  if (!found_recent) {
-    free(entries);
+  if (ctx->count < MAX_STREAK_DATES) {
+    ctx->dates[ctx->count++] = normalized;
+  }
+  return true;  // continue iterating
+}
+
+uint16_t stats_calculate_streak(void) {
+  uint16_t count = storage_get_entry_count();
+  if (count == 0) return 0;
+
+  // Collect unique dates using iterator (no bulk malloc)
+  StreakDateCtx ctx;
+  ctx.count = 0;
+  storage_iterate_entries(collect_dates_callback, &ctx);
+
+  if (ctx.count == 0) return 0;
+
+  // Sort dates newest first (insertion sort - good for small arrays)
+  for (uint16_t i = 1; i < ctx.count; i++) {
+    time_t key = ctx.dates[i];
+    int32_t j = i - 1;
+    while (j >= 0 && ctx.dates[j] < key) {
+      ctx.dates[j + 1] = ctx.dates[j];
+      j--;
+    }
+    ctx.dates[j + 1] = key;
+  }
+
+  time_t today = date_get_today();
+
+  // Check if there's an entry for today or yesterday
+  if (!date_is_same_day(ctx.dates[0], today) &&
+      !date_is_same_day(ctx.dates[0], date_add_days(today, -1))) {
     return 0;  // Streak is broken
   }
 
   // Count consecutive days backwards from today
-  for (int32_t day_offset = 0; day_offset <= count; day_offset++) {
+  uint16_t streak = 0;
+  for (int32_t day_offset = 0; day_offset <= (int32_t)ctx.count; day_offset++) {
     time_t check_date = date_add_days(today, -day_offset);
     bool found = false;
 
-    for (uint16_t i = 0; i < count; i++) {
-      if (date_is_same_day(entries[i].date, check_date)) {
+    for (uint16_t i = 0; i < ctx.count; i++) {
+      if (date_is_same_day(ctx.dates[i], check_date)) {
         found = true;
         break;
       }
@@ -49,12 +73,10 @@ uint16_t stats_calculate_streak(void) {
     if (found) {
       streak++;
     } else {
-      // Streak broken
       break;
     }
   }
 
-  free(entries);
   return streak;
 }
 

@@ -5,33 +5,6 @@
 #include "../utils/date_utils.h"
 #include <string.h>
 
-// Canned response labels
-static const char* CANNED_LABELS[NUM_CANNED_RESPONSES] = {
-  "Family",
-  "Friends",
-  "Health",
-  "Work",
-  "Nature",
-  "Food",
-  "Music",
-  "Rest",
-  "Learning",
-  "Pets"
-};
-
-// Mood labels
-static const char* MOOD_LABELS[9] = {
-  "Sad",
-  "Anxious",
-  "Stressed",
-  "Tired",
-  "Neutral",
-  "Content",
-  "Happy",
-  "Excited",
-  "Grateful"
-};
-
 // Get mood icon resource ID (28×28 for mood selection)
 static uint32_t get_mood_icon_resource(Mood mood) {
   switch (mood) {

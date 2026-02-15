@@ -46,6 +46,10 @@ typedef struct {
   uint16_t mood_counts[9];        // Count per mood type
 } Stats;
 
+// Centralized label arrays
+extern const char* MOOD_LABELS[9];
+extern const char* CANNED_LABELS[NUM_CANNED_RESPONSES];
+
 // Function declarations
 void entry_init(Entry *entry, time_t date, Mood mood, uint16_t canned_flags);
 void entry_generate_text(uint16_t canned_flags, char *buffer, size_t size);

@@ -3,7 +3,6 @@
 #include "../utils/constants.h"
 #include <string.h>
 #include <ctype.h>
-#include <stdlib.h>
 
 bool str_contains_case_insensitive(const char *haystack, const char *needle) {
   if (!haystack || !needle || needle[0] == '\0') {
@@ -70,33 +69,40 @@ bool entry_matches_criteria(const Entry *entry, const SearchCriteria *criteria) 
   return true;
 }
 
+// Context for iterator-based search
+typedef struct {
+  const SearchCriteria *criteria;
+  Entry *results;
+  uint16_t max_results;
+  uint16_t found;
+} SearchIterCtx;
+
+static bool search_iterator_callback(const Entry *entry, uint16_t index, void *context) {
+  SearchIterCtx *ctx = (SearchIterCtx *)context;
+  if (ctx->found >= ctx->max_results) {
+    return false;  // stop early, buffer full
+  }
+  if (entry_matches_criteria(entry, ctx->criteria)) {
+    memcpy(&ctx->results[ctx->found], entry, sizeof(Entry));
+    ctx->found++;
+  }
+  return true;  // continue
+}
+
 uint16_t search_entries(const SearchCriteria *criteria, Entry *results, uint16_t max_results) {
   if (!criteria || !results || max_results == 0) {
     return 0;
   }
 
-  // Load all entries (use malloc to avoid stack overflow)
-  Entry *all_entries = malloc(sizeof(Entry) * MAX_ENTRIES);
-  if (!all_entries) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "search_entries: malloc failed");
-    return 0;
-  }
+  SearchIterCtx ctx = {
+    .criteria = criteria,
+    .results = results,
+    .max_results = max_results,
+    .found = 0
+  };
 
-  uint16_t total_count = storage_get_all_entries(all_entries, MAX_ENTRIES);
+  storage_iterate_entries(search_iterator_callback, &ctx);
 
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "search_entries: Searching %d entries", total_count);
-
-  // Filter entries
-  uint16_t found = 0;
-  for (uint16_t i = 0; i < total_count && found < max_results; i++) {
-    if (entry_matches_criteria(&all_entries[i], criteria)) {
-      memcpy(&results[found], &all_entries[i], sizeof(Entry));
-      found++;
-    }
-  }
-
-  free(all_entries);
-
-  APP_LOG(APP_LOG_LEVEL_INFO, "search_entries: Found %d matches", found);
-  return found;
+  APP_LOG(APP_LOG_LEVEL_INFO, "search_entries: Found %d matches", ctx.found);
+  return ctx.found;
 }

@@ -41,3 +41,8 @@ bool storage_delete_entry(uint16_t index);
 
 // Get entry by index
 bool storage_get_entry_by_index(uint16_t index, Entry *entry);
+
+// Callback-based entry iterator (reads one entry at a time, no bulk malloc)
+// Return true from callback to continue, false to stop early
+typedef bool (*StorageEntryCallback)(const Entry *entry, uint16_t index, void *context);
+void storage_iterate_entries(StorageEntryCallback callback, void *context);

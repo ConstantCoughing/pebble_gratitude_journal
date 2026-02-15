@@ -28,19 +28,6 @@ static uint16_t s_selected_global_index;
 static Window *s_action_menu_window;
 static SimpleMenuLayer *s_action_menu_layer;
 
-// Mood labels
-static const char* MOOD_LABELS[9] = {
-  "Sad",
-  "Anxious",
-  "Stressed",
-  "Tired",
-  "Neutral",
-  "Content",
-  "Happy",
-  "Excited",
-  "Grateful"
-};
-
 // Forward declarations
 static void load_entries_for_date(void);
 static void cleanup_action_menu(void);
@@ -158,11 +145,11 @@ static void menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
   const char *mood = MOOD_LABELS[entry->mood];
 
   // Show entry number, mood as title; text preview as subtitle
-  static char title_buf[32];
+  char title_buf[32];
   snprintf(title_buf, sizeof(title_buf), "#%d - %s", row + 1, mood);
 
   // Truncate text for subtitle preview
-  static char subtitle_buf[32];
+  char subtitle_buf[32];
   strncpy(subtitle_buf, entry->text, sizeof(subtitle_buf) - 1);
   subtitle_buf[sizeof(subtitle_buf) - 1] = '\0';
 

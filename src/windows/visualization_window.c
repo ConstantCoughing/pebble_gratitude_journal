@@ -1,9 +1,9 @@
 #include "visualization_window.h"
 #include "../data/storage.h"
+#include "../data/entry.h"
 #include "../utils/constants.h"
 #include "../utils/date_utils.h"
 #include <string.h>
-#include <stdlib.h>
 
 typedef enum {
   VIZ_BAR_CHART,
@@ -21,38 +21,64 @@ static MenuLayer *s_menu_layer;
 static VisualizationType s_current_viz;
 static bool s_showing_menu = true;
 
-// Mood labels
-static const char* MOOD_LABELS[9] = {
-  "Sad", "Anxious", "Stressed", "Tired", "Neutral",
-  "Content", "Happy", "Excited", "Grateful"
-};
+// Cached visualization data (computed once on selection, not per paint)
+static uint16_t s_week_counts[4];      // entries per week for bar chart
+static uint16_t s_week_mood_sum[4];    // mood sum per week for trend
+static uint16_t s_week_mood_count[4];  // entry count per week for trend
+static uint16_t s_mood_counts[9];      // mood distribution
+static bool s_data_loaded = false;
 
-// Draw bar chart: entries per week (last 4 weeks)
+// Iterator callback that computes all viz data in a single pass
+typedef struct {
+  time_t now;
+  uint16_t week_counts[4];
+  uint16_t week_mood_sum[4];
+  uint16_t week_mood_count[4];
+  uint16_t mood_counts[9];
+} VizComputeCtx;
+
+static bool viz_compute_callback(const Entry *entry, uint16_t index, void *context) {
+  VizComputeCtx *ctx = (VizComputeCtx *)context;
+
+  // Mood distribution
+  if (entry->mood <= MOOD_GRATEFUL) {
+    ctx->mood_counts[entry->mood]++;
+  }
+
+  // Week bucketing (last 4 weeks)
+  int days_ago = (ctx->now - entry->date) / 86400;
+  int week = -1;
+  if (days_ago < 7) week = 0;
+  else if (days_ago < 14) week = 1;
+  else if (days_ago < 21) week = 2;
+  else if (days_ago < 28) week = 3;
+
+  if (week >= 0) {
+    ctx->week_counts[week]++;
+    ctx->week_mood_sum[week] += entry->mood;
+    ctx->week_mood_count[week]++;
+  }
+
+  return true;  // continue
+}
+
+static void compute_viz_data(void) {
+  VizComputeCtx ctx;
+  memset(&ctx, 0, sizeof(ctx));
+  ctx.now = time(NULL);
+
+  storage_iterate_entries(viz_compute_callback, &ctx);
+
+  memcpy(s_week_counts, ctx.week_counts, sizeof(s_week_counts));
+  memcpy(s_week_mood_sum, ctx.week_mood_sum, sizeof(s_week_mood_sum));
+  memcpy(s_week_mood_count, ctx.week_mood_count, sizeof(s_week_mood_count));
+  memcpy(s_mood_counts, ctx.mood_counts, sizeof(s_mood_counts));
+  s_data_loaded = true;
+}
+
+// Draw bar chart: entries per week (last 4 weeks) — uses cached data
 static void draw_bar_chart(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
-
-  // Load all entries (use malloc to avoid stack overflow)
-  Entry *entries = malloc(sizeof(Entry) * MAX_ENTRIES);
-  if (!entries) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "draw_bar_chart: malloc failed");
-    return;
-  }
-
-  uint16_t count = storage_get_all_entries(entries, MAX_ENTRIES);
-
-  // Count entries per week for last 4 weeks
-  time_t now = time(NULL);
-  uint16_t week_counts[4] = {0, 0, 0, 0};
-
-  for (uint16_t i = 0; i < count; i++) {
-    int days_ago = (now - entries[i].date) / 86400;
-    if (days_ago < 7) week_counts[0]++;
-    else if (days_ago < 14) week_counts[1]++;
-    else if (days_ago < 21) week_counts[2]++;
-    else if (days_ago < 28) week_counts[3]++;
-  }
-
-  free(entries);
 
   // Draw title
   graphics_context_set_text_color(ctx, GColorBlack);
@@ -65,7 +91,7 @@ static void draw_bar_chart(Layer *layer, GContext *ctx) {
   // Find max for scaling
   uint16_t max_count = 0;
   for (int i = 0; i < 4; i++) {
-    if (week_counts[i] > max_count) max_count = week_counts[i];
+    if (s_week_counts[i] > max_count) max_count = s_week_counts[i];
   }
   if (max_count == 0) max_count = 1; // Avoid divide by zero
 
@@ -78,7 +104,7 @@ static void draw_bar_chart(Layer *layer, GContext *ctx) {
 
   for (int i = 0; i < 4; i++) {
     int x = start_x + i * (bar_width + bar_spacing);
-    int height = (week_counts[3-i] * max_height) / max_count;
+    int height = (s_week_counts[3-i] * max_height) / max_count;
 
     // Draw bar
     graphics_context_set_fill_color(ctx, GColorBlack);
@@ -86,7 +112,7 @@ static void draw_bar_chart(Layer *layer, GContext *ctx) {
 
     // Draw count
     char count_str[8];
-    snprintf(count_str, sizeof(count_str), "%d", week_counts[3-i]);
+    snprintf(count_str, sizeof(count_str), "%d", s_week_counts[3-i]);
     graphics_draw_text(ctx, count_str,
                       fonts_get_system_font(FONT_KEY_GOTHIC_14),
                       GRect(x, base_y - height - 18, bar_width, 18),
@@ -104,39 +130,9 @@ static void draw_bar_chart(Layer *layer, GContext *ctx) {
   }
 }
 
-// Draw mood trend line (average mood per week)
+// Draw mood trend line (average mood per week) — uses cached data
 static void draw_mood_trend(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
-
-  // Load all entries (use malloc to avoid stack overflow)
-  Entry *entries = malloc(sizeof(Entry) * MAX_ENTRIES);
-  if (!entries) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "draw_mood_trend: malloc failed");
-    return;
-  }
-
-  uint16_t count = storage_get_all_entries(entries, MAX_ENTRIES);
-
-  // Calculate average mood per week for last 4 weeks
-  time_t now = time(NULL);
-  uint16_t week_mood_sum[4] = {0, 0, 0, 0};
-  uint16_t week_mood_count[4] = {0, 0, 0, 0};
-
-  for (uint16_t i = 0; i < count; i++) {
-    int days_ago = (now - entries[i].date) / 86400;
-    int week = -1;
-    if (days_ago < 7) week = 0;
-    else if (days_ago < 14) week = 1;
-    else if (days_ago < 21) week = 2;
-    else if (days_ago < 28) week = 3;
-
-    if (week >= 0) {
-      week_mood_sum[week] += entries[i].mood;
-      week_mood_count[week]++;
-    }
-  }
-
-  free(entries);
 
   // Draw title
   graphics_context_set_text_color(ctx, GColorBlack);
@@ -160,8 +156,8 @@ static void draw_mood_trend(Layer *layer, GContext *ctx) {
   GPoint points[4];
   for (int i = 0; i < 4; i++) {
     int x = margin + (3-i) * graph_width / 3;
-    int avg_mood = week_mood_count[3-i] > 0 ?
-                   week_mood_sum[3-i] / week_mood_count[3-i] : 4;
+    int avg_mood = s_week_mood_count[3-i] > 0 ?
+                   s_week_mood_sum[3-i] / s_week_mood_count[3-i] : 4;
     int y = base_y - (avg_mood * graph_height / 8);
     points[i] = GPoint(x, y);
   }
@@ -188,15 +184,11 @@ static void draw_mood_trend(Layer *layer, GContext *ctx) {
   }
 }
 
-// Draw mood distribution (pie/bar chart of mood counts)
+// Draw mood distribution (bar chart of mood counts) — uses cached data
 static void draw_mood_distribution(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
 
-  // Load stats
-  Stats stats;
-  storage_load_stats(&stats);
-
-  // Find top 5 moods
+  // Find top 5 moods from cached data
   typedef struct {
     Mood mood;
     uint16_t count;
@@ -205,7 +197,7 @@ static void draw_mood_distribution(Layer *layer, GContext *ctx) {
   MoodCount mood_data[9];
   for (int i = 0; i < 9; i++) {
     mood_data[i].mood = (Mood)i;
-    mood_data[i].count = stats.mood_counts[i];
+    mood_data[i].count = s_mood_counts[i];
   }
 
   // Simple bubble sort
@@ -298,6 +290,9 @@ static void menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
 static void menu_select(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
   s_current_viz = (VisualizationType)cell_index->row;
   s_showing_menu = false;
+
+  // Compute all viz data in one pass before showing
+  compute_viz_data();
 
   // Hide menu, show viz
   layer_set_hidden(menu_layer_get_layer(s_menu_layer), true);

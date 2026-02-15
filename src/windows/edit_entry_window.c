@@ -5,18 +5,6 @@
 #include "../utils/constants.h"
 #include <string.h>
 
-// Canned response labels
-static const char* CANNED_LABELS[NUM_CANNED_RESPONSES] = {
-  "Family", "Friends", "Health", "Work", "Nature",
-  "Food", "Music", "Rest", "Learning", "Pets"
-};
-
-// Mood labels
-static const char* MOOD_LABELS[9] = {
-  "Sad", "Anxious", "Stressed", "Tired", "Neutral",
-  "Content", "Happy", "Excited", "Grateful"
-};
-
 typedef enum {
   STAGE_CANNED_RESPONSE,
   STAGE_MOOD_SELECTION,

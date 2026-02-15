@@ -3,31 +3,22 @@
 #include <string.h>
 #include <stdio.h>
 
-// Canned response strings
-static const char* CANNED_RESPONSE_STRINGS[] = {
-  "family",
-  "friends",
-  "health",
-  "work",
-  "nature",
-  "food",
-  "music",
-  "rest",
-  "learning",
-  "pets"
+// Centralized mood labels (used by all windows)
+const char* MOOD_LABELS[9] = {
+  "Sad", "Anxious", "Stressed", "Tired", "Neutral",
+  "Content", "Happy", "Excited", "Grateful"
 };
 
-// Mood strings
-static const char* MOOD_STRINGS[] = {
-  "Sad",
-  "Anxious",
-  "Stressed",
-  "Tired",
-  "Neutral",
-  "Content",
-  "Happy",
-  "Excited",
-  "Grateful"
+// Centralized canned response labels (used by entry/edit windows)
+const char* CANNED_LABELS[NUM_CANNED_RESPONSES] = {
+  "Family", "Friends", "Health", "Work", "Nature",
+  "Food", "Music", "Rest", "Learning", "Pets"
+};
+
+// Canned response strings (lowercase, for text generation)
+static const char* CANNED_RESPONSE_STRINGS[] = {
+  "family", "friends", "health", "work", "nature",
+  "food", "music", "rest", "learning", "pets"
 };
 
 void entry_init(Entry *entry, time_t date, Mood mood, uint16_t canned_flags) {
@@ -110,8 +101,8 @@ bool entry_validate(const Entry *entry) {
     return false;
   }
 
-  // Check at least one canned response is selected
-  if (entry->canned_flags == 0) {
+  // Check at least one canned response or text content
+  if (entry->canned_flags == 0 && strlen(entry->text) == 0) {
     return false;
   }
 
@@ -122,7 +113,7 @@ const char* mood_to_string(Mood mood) {
   if (mood > MOOD_GRATEFUL) {
     return "Unknown";
   }
-  return MOOD_STRINGS[mood];
+  return MOOD_LABELS[mood];
 }
 
 const char* canned_response_to_string(CannedResponse response) {

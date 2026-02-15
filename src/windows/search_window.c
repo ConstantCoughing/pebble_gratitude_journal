@@ -14,12 +14,6 @@ static Entry s_results[MAX_ENTRIES];
 static uint16_t s_result_count = 0;
 static bool s_showing_results = false;
 
-// Mood labels for display
-static const char* MOOD_LABELS[9] = {
-  "Sad", "Anxious", "Stressed", "Tired", "Neutral",
-  "Content", "Happy", "Excited", "Grateful"
-};
-
 // Filter menu callbacks
 static uint16_t filter_menu_get_num_rows(MenuLayer *menu, uint16_t section, void *context) {
   (void)menu;
@@ -118,16 +112,16 @@ static void results_menu_draw_row(GContext *ctx, const Layer *cell, MenuIndex *i
 
   // Format date
   struct tm *time_info = localtime(&entry->date);
-  static char date_str[32];
+  char date_str[32];
   strftime(date_str, sizeof(date_str), "%b %d", time_info);
 
   // Truncate text for preview
-  static char preview[51];
+  char preview[51];
   strncpy(preview, entry->text, 50);
   preview[50] = '\0';
 
   // Draw with mood label
-  static char title[64];
+  char title[64];
   snprintf(title, sizeof(title), "%s - %s", date_str, MOOD_LABELS[entry->mood]);
 
   menu_cell_basic_draw(ctx, cell, title, preview, NULL);

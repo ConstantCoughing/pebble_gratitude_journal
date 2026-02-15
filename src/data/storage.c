@@ -140,6 +140,15 @@ uint16_t storage_get_entry_count(void) {
   return (uint16_t)persist_read_int(STORAGE_KEY_ENTRY_COUNT);
 }
 
+// Iterator callback for mood counting
+static bool mood_count_callback(const Entry *entry, uint16_t index, void *context) {
+  uint16_t *mood_counts = (uint16_t *)context;
+  if (entry->mood <= MOOD_GRATEFUL) {
+    mood_counts[entry->mood]++;
+  }
+  return true;  // continue iterating
+}
+
 void storage_load_stats(Stats *stats) {
   if (!stats) {
     APP_LOG(APP_LOG_LEVEL_ERROR, "storage_load_stats: stats is NULL");
@@ -158,25 +167,9 @@ void storage_load_stats(Stats *stats) {
 
   stats->total_entries = storage_get_entry_count();
 
-  // Calculate mood counts from all entries
-  Entry *entries = malloc(sizeof(Entry) * MAX_ENTRIES);
-  if (!entries) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_load_stats: malloc failed for entries");
-    return;
-  }
+  // Calculate mood counts using iterator (no bulk malloc)
+  storage_iterate_entries(mood_count_callback, stats->mood_counts);
 
-  uint16_t count = storage_get_all_entries(entries, MAX_ENTRIES);
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "storage_load_stats: loaded %d entries for stats calculation", count);
-
-  for (uint16_t i = 0; i < count; i++) {
-    if (entries[i].mood <= MOOD_GRATEFUL) {
-      stats->mood_counts[entries[i].mood]++;
-    } else {
-      APP_LOG(APP_LOG_LEVEL_WARNING, "storage_load_stats: invalid mood value %d for entry %d", entries[i].mood, i);
-    }
-  }
-
-  free(entries);
   APP_LOG(APP_LOG_LEVEL_INFO, "storage_load_stats: streak=%d, total=%d", stats->current_streak, stats->total_entries);
 }
 
@@ -187,6 +180,23 @@ void storage_save_stats(const Stats *stats) {
   persist_write_int(STORAGE_KEY_LAST_ENTRY_DATE, (int)stats->last_entry_date);
 }
 
+// Iterator callback to find the index of the oldest entry
+typedef struct {
+  time_t oldest_date;
+  uint16_t oldest_index;
+  bool found;
+} OldestEntryCtx;
+
+static bool find_oldest_callback(const Entry *entry, uint16_t index, void *context) {
+  OldestEntryCtx *ctx = (OldestEntryCtx *)context;
+  if (!ctx->found || entry->date < ctx->oldest_date) {
+    ctx->oldest_date = entry->date;
+    ctx->oldest_index = index;
+    ctx->found = true;
+  }
+  return true;  // continue iterating
+}
+
 bool storage_delete_oldest_entry(void) {
   uint16_t count = storage_get_entry_count();
   if (count == 0) {
@@ -194,45 +204,41 @@ bool storage_delete_oldest_entry(void) {
     return false;
   }
 
-  // Load all entries to find oldest
-  Entry *entries = malloc(sizeof(Entry) * MAX_ENTRIES);
-  if (!entries) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_oldest_entry: malloc failed");
+  // Find oldest entry using iterator (no bulk malloc)
+  OldestEntryCtx ctx = { .oldest_date = 0, .oldest_index = 0, .found = false };
+  storage_iterate_entries(find_oldest_callback, &ctx);
+
+  if (!ctx.found) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_oldest_entry: no entries found");
     return false;
   }
 
-  uint16_t loaded = storage_get_all_entries(entries, MAX_ENTRIES);
-  if (loaded == 0) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_oldest_entry: no entries loaded");
-    free(entries);
-    return false;
-  }
+  APP_LOG(APP_LOG_LEVEL_INFO, "storage_delete_oldest_entry: deleting entry %d from %ld", ctx.oldest_index, (long)ctx.oldest_date);
 
-  // Find oldest (entries are sorted newest first, so oldest is at end)
-  time_t oldest_date = entries[loaded - 1].date;
-  APP_LOG(APP_LOG_LEVEL_INFO, "storage_delete_oldest_entry: deleting entry from %ld", (long)oldest_date);
+  // Shift entries after deleted index down by one, reading one at a time
+  for (uint16_t i = ctx.oldest_index; i < count - 1; i++) {
+    Entry entry;
+    uint32_t next_key = get_entry_key(i + 1);
+    uint32_t cur_key = get_entry_key(i);
 
-  // Shift all entries down by one slot
-  for (uint16_t i = 0; i < loaded - 1; i++) {
-    uint32_t key = get_entry_key(i);
-    int result = persist_write_data(key, &entries[i], sizeof(Entry));
-    if (result != sizeof(Entry)) {
-      APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_oldest_entry: failed to write entry %d during shift", i);
-      // Continue anyway to try to maintain data integrity
+    if (persist_exists(next_key)) {
+      int read_result = persist_read_data(next_key, &entry, sizeof(Entry));
+      if (read_result == sizeof(Entry)) {
+        int write_result = persist_write_data(cur_key, &entry, sizeof(Entry));
+        if (write_result != sizeof(Entry)) {
+          APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_oldest_entry: failed to write entry %d during shift", i);
+        }
+      }
     }
   }
 
   // Delete last slot
-  uint32_t last_key = get_entry_key(loaded - 1);
+  uint32_t last_key = get_entry_key(count - 1);
   persist_delete(last_key);
 
   // Update count
-  int count_result = persist_write_int(STORAGE_KEY_ENTRY_COUNT, loaded - 1);
-  if (count_result != sizeof(int)) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "storage_delete_oldest_entry: failed to update count");
-  }
+  persist_write_int(STORAGE_KEY_ENTRY_COUNT, count - 1);
 
-  free(entries);
   APP_LOG(APP_LOG_LEVEL_INFO, "storage_delete_oldest_entry: successfully deleted oldest entry");
   return true;
 }
@@ -334,4 +340,23 @@ bool storage_get_entry_by_index(uint16_t index, Entry *entry) {
 
   APP_LOG(APP_LOG_LEVEL_ERROR, "storage_get_entry_by_index: persist_read_data failed, result=%d", result);
   return false;
+}
+
+void storage_iterate_entries(StorageEntryCallback callback, void *context) {
+  if (!callback) return;
+
+  uint16_t count = storage_get_entry_count();
+  for (uint16_t i = 0; i < count; i++) {
+    Entry entry;
+    uint32_t key = get_entry_key(i);
+
+    if (persist_exists(key)) {
+      int result = persist_read_data(key, &entry, sizeof(Entry));
+      if (result == sizeof(Entry)) {
+        if (!callback(&entry, i, context)) {
+          return;  // Callback requested early stop
+        }
+      }
+    }
+  }
 }
