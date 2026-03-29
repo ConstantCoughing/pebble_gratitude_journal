@@ -1,3 +1,5 @@
+# This repository was migrated to [Codeberg](https://codeberg.org/ConstantCoughing/pebble_gratitude_journal).
+
 # Gratitude Journal - Pebble Smartwatch App
 
 A gratitude journal app for Pebble smartwatches that helps you track daily moments of gratitude, visualize mood patterns, and build a consistent journaling habit with streak tracking.
